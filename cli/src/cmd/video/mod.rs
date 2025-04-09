@@ -5,6 +5,7 @@ use tabled::{Tabled, derive::display};
 
 mod create;
 mod set_cover;
+mod set_metadata;
 mod upload;
 
 #[derive(Parser)]
@@ -48,6 +49,7 @@ fn display_timestamp<T>(ts: &i64, _rec: &T) -> String {
 enum Commands{
     Create(create::Args),
     SetCover(set_cover::Args),
+    SetMetadata(set_metadata::Args),
     Upload(upload::Args),
 }
 
@@ -56,6 +58,7 @@ pub(crate) fn main(args: Args) {
 	Some(command) => match command {
 	    Commands::Create(args) => create::main(args),
 	    Commands::SetCover(args) => set_cover::main(args),
+	    Commands::SetMetadata(args) => set_metadata::main(args),
 	    Commands::Upload(args) => upload::main(args),
 	}
 	None => {}

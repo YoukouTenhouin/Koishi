@@ -90,8 +90,6 @@ fn do_upload(
 }
 
 pub(crate) fn main(args: Args) {
-    std::println!("Uploading video file {path}", path=args.path.display());
-
     let ret = do_upload(&args.uuid, &args.path);
     match ret {
 	Ok(()) => println!("Upload finished"),

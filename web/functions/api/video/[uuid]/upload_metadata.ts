@@ -15,11 +15,6 @@ interface VideoInfo {
     timestamp: number
 }
 
-interface ReqBody {
-    upload_id: string,
-    etags: string[]
-}
-
 async function get_video(uuid: string, db: D1Database): Promise<VideoInfo | null> {
     const ps = db.prepare(
         "SELECT title, cover, room, timestamp FROM video WHERE uuid = UNHEX(?)"
@@ -53,32 +48,26 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         return Response.json({ error: "invalid uuid format" }, { status: 400 })
     }
 
-    const { upload_id, etags } = await context.request.json<ReqBody>()
-    console.log("UploadID:", upload_id)
-
     const video = await get_video(uuid, context.env.DB)
+    if (!video) {
+        return Response.json({ error: "video not found" }, { status: 404 })
+    }
 
     const aws = new AwsClient({
         accessKeyId: context.env.S3_KEY_ID,
         secretAccessKey: context.env.S3_KEY
     });
 
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>
-    <CompleteMultipartUpload>
-    ${etags.map((t, i) => `<Part><PartNumber>${i + 1}</PartNumber><ETag>${t}</ETag></Part>`).join("\n")}
-  </CompleteMultipartUpload>`;
+    const obj_url = `${context.env.S3_ENDPOINT}/${context.env.S3_BUCKET}/metadata/${uuid.toLowerCase()}`
+    const signed = await aws.sign(obj_url, {
+        method: "PUT",
+        aws: { signQuery: true }
+    });
 
-    const obj_url = `${context.env.S3_ENDPOINT}/${context.env.S3_BUCKET}/video/${video.room}/${uuid.toLowerCase()}`
-
-    const complete = await aws.fetch(
-        `${obj_url}?uploadId=${encodeURIComponent(upload_id)}`,
-        {
-            method: 'POST',
-            body: xml,
-            headers: { 'Content-Type': 'application/xml' }
+    return Response.json({
+        success: true,
+        data: {
+            url: signed.url
         }
-    );
-
-    const result = await complete.text();
-    return Response.json({ success: true, data: result })
+    })
 }

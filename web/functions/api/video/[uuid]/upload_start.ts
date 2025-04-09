@@ -57,13 +57,16 @@ export const onRequest: PagesFunction<Env> = async (context) => {
     const parts = Math.ceil(size / part_size)
 
     const video = await get_video(uuid, context.env.DB)
+    if (!video) {
+        return Response.json({ error: "video not found" }, { status: 404 })
+    }
 
     const aws = new AwsClient({
         accessKeyId: context.env.S3_KEY_ID,
         secretAccessKey: context.env.S3_KEY
     });
 
-    const obj_url = `${context.env.S3_ENDPOINT}/${context.env.S3_BUCKET}/video/${video.room}/${uuid}`
+    const obj_url = `${context.env.S3_ENDPOINT}/${context.env.S3_BUCKET}/video/${video.room}/${uuid.toLowerCase()}`
 
     // init multipart upload
     const init = await aws.fetch(

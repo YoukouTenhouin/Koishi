@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from 'react'
+import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router';
 import { AppShell, Card, Flex, Group, ScrollArea, Skeleton, Stack, Text } from '@mantine/core'
 
@@ -75,6 +75,21 @@ const ChatDisplay: FC<{
 }> = ({ messages, playbackPosition }) => {
     const following = true	// TODO
 
+    const viewport = useRef<HTMLDivElement>(null)
+
+    useEffect(() => {
+        if (!following) return
+        let id = setInterval(() => {
+            viewport.current?.scrollTo({
+                top: viewport.current.scrollHeight,
+                behavior: "smooth"
+            })
+        }, 500)
+        return () => {
+            clearInterval(id)
+        }
+    }, [following])
+
     const sorted_messages = useMemo(() => {
         return messages.sort((a, b) => a.timestamp - b.timestamp)
     }, [messages])
@@ -89,9 +104,9 @@ const ChatDisplay: FC<{
     }, [sorted_messages, following, playbackPosition])
 
     return (
-        <ScrollArea style={{ flex: "1 1 0", overflowY: "auto" }}>
-            <Flex direction="column-reverse">
-                {display_messages.reverse().map(msg => (
+        <ScrollArea style={{ flex: "1 1 0", overflowY: "auto" }} viewportRef={viewport}>
+            <Flex direction="column">
+                {display_messages.map(msg => (
                     <ChatEntry key={msg.id} msg={msg} />
                 ))}
             </Flex>
@@ -133,7 +148,7 @@ const SideInfo: FC<{
     }, [info])
 
     return (
-        <Stack w="300px" p="xl">
+        <Stack w={{ sm: "300px" }} p="xl">
             <VODInfo info={info} />
             <ChatDisplay playbackPosition={playbackPosition} messages={messages} />
         </Stack>
@@ -175,7 +190,7 @@ const Video: FC = () => {
             </AppShell.Header>
             <AppShell.Main>
                 <Flex
-                    flex={{ base: 0, sm: 1 }}
+                    flex={1}
                     direction={{ base: "column", sm: "row" }}>
                     {
                         source && (

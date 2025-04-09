@@ -17,6 +17,8 @@ pub(super) struct Args {
     progress: bool,
     #[arg(short='s', long, default_value_t=100_000_000)]
     part_size: u64,
+    #[arg(short, long, default_value_t=10)]
+    retry_part: u64,
 
     uuid: String,
     path: PathBuf,
@@ -97,6 +99,12 @@ impl UploadProgress {
 	}
     }
 
+    fn rollback_part(&self)  {
+	let rollback_length = self.pb_current.position();
+	self.pb_current.dec(rollback_length);
+	self.pb_total.dec(rollback_length);
+    }
+
     fn finish_part(&self) {
 	self.pb_parts.inc(1);
     }
@@ -130,7 +138,7 @@ fn start_upload(uuid: &str, file_size: u64, part_size: u64) -> api_req::Result<R
     Ok(res_body.unwrap_or_error_out())
 }
 
-fn upload_part(
+fn do_upload_part(
     path: &Path, url: &str, offset: u64, size: u64, pb: &Option<UploadProgress>
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = File::open(path)?;
@@ -165,6 +173,25 @@ fn upload_part(
     Ok(etag)
 }
 
+fn upload_part(
+    path: &Path, url: &str, offset: u64, size: u64, pb: &Option<UploadProgress>,
+    retry: u64
+) -> Result<String, Box<dyn std::error::Error>> {
+    let mut retry_count = 0;
+    loop {
+	let result = do_upload_part(path, url, offset, size, pb);
+	if result.is_ok() {
+	    return result
+	}
+
+	retry_count += 1;
+	if retry_count >= retry {
+	    return result
+	}
+	pb.as_ref().map(|v| v.rollback_part());
+    }
+}
+
 fn finish_upload(uuid: &str, upload_id: String, etags: Vec<String>) -> api_req::Result<()> {
     let url = format!("video/{uuid}/upload_finish");
     let req_body = ReqUploadFinish{ upload_id, etags };
@@ -177,7 +204,7 @@ fn finish_upload(uuid: &str, upload_id: String, etags: Vec<String>) -> api_req::
 }
 
 fn do_upload(
-    uuid: &str, path: &Path, part_size: u64, progress: bool
+    uuid: &str, path: &Path, part_size: u64, progress: bool, retry: u64
 ) -> Result<(), Box<dyn std::error::Error>> {
     let f = File::open(path)?;
     let f_size = f.metadata()?.len();
@@ -201,7 +228,7 @@ fn do_upload(
     for (i, url) in upload_start.urls.iter().enumerate() {
 	let offset = (i as u64) * part_size;
 	let size = min(part_size, f_size - offset);
-	let etag = upload_part(path, url, offset, size, &pb)?;
+	let etag = upload_part(path, url, offset, size, &pb, retry)?;
 	etags.push(etag);
     }
 
@@ -214,7 +241,8 @@ fn do_upload(
 pub(crate) fn main(args: Args) {
     std::println!("Uploading video file {path}", path=args.path.display());
 
-    let ret = do_upload(&args.uuid, &args.path, args.part_size, args.progress);
+    let ret = do_upload(
+	&args.uuid, &args.path, args.part_size, args.progress, args.retry_part);
     match ret {
 	Ok(()) => println!("Upload finished"),
 	Err(e) => {

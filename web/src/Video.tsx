@@ -1,6 +1,6 @@
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router';
-import { AppShell, Card, Flex, Group, ScrollArea, Skeleton, Stack, Text } from '@mantine/core'
+import { AppShell, Card, Flex, Group, ScrollArea, Skeleton, Stack, Text, useMatches } from '@mantine/core'
 
 import SiteTitle from './components/SiteTitle';
 
@@ -296,6 +296,11 @@ const Video: FC = () => {
     const params = useParams()
     const video_id = params.video!
 
+    const videoPlayerFlex = useMatches({
+        base: 0,
+        sm: 1
+    })
+
     useEffect(() => {
         const loader = async () => {
             const res = await fetch(`/api/video/${video_id}`)
@@ -326,21 +331,21 @@ const Video: FC = () => {
                 <Flex
                     flex={1}
                     direction={{ base: "column", sm: "row" }}>
-                    {
-                        source && (
-                            <video controls style={{
-                                flex: 1,
+                    {source && (
+                        <video
+                            controls
+                            style={{
+                                flex: videoPlayerFlex,
                                 minWidth: 0,
                                 objectFit: "contain",
                                 backgroundColor: "black"
                             }}
-                                onTimeUpdate={e => setPlaybackPosition(
-                                    e.currentTarget.currentTime
-                                )}>
-                                <source src={source.toString()} />
-                            </video>
-                        )
-                    }
+                            onTimeUpdate={e => setPlaybackPosition(
+                                e.currentTarget.currentTime
+                            )}>
+                            <source src={source.toString()} />
+                        </video>
+                    )}
                     <SideInfo info={video} playbackPosition={playbackPosition} />
                 </Flex>
             </AppShell.Main>

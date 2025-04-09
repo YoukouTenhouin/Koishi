@@ -43,7 +43,7 @@ interface ChatMsg {
 
 const ChatEntry: FC<{ msg: ChatMsg }> = ({ msg }) => {
     return (
-        <Group gap="xs">
+        <Group gap="1">
             <Text fw={700}>{msg.username}:</Text>
             <Text>{msg.content}</Text>
         </Group>
@@ -80,10 +80,6 @@ const ChatDisplay: FC<{
     useEffect(() => {
         if (!following) return
         let id = setInterval(() => {
-            viewport.current?.scrollTo({
-                top: viewport.current.scrollHeight,
-                behavior: "smooth"
-            })
         }, 500)
         return () => {
             clearInterval(id)
@@ -94,18 +90,26 @@ const ChatDisplay: FC<{
         return messages.sort((a, b) => a.timestamp - b.timestamp)
     }, [messages])
 
-    const display_messages = useMemo(() => {
+    const [latest_idx, display_messages] = useMemo(() => {
         if (!following) {
-            return sorted_messages
+            return [0, sorted_messages]
         }
 
-        const last_idx = binary_search_msg(sorted_messages, playbackPosition)
-        return messages.slice(Math.max(last_idx - 100, 0), last_idx)
+        const latest_idx = binary_search_msg(sorted_messages, playbackPosition)
+        return [latest_idx, messages.slice(Math.max(latest_idx - 100, 0), latest_idx)]
     }, [sorted_messages, following, playbackPosition])
+
+    useEffect(() => {
+        if (!following) return
+        viewport.current?.scrollTo({
+            top: viewport.current.scrollHeight,
+            behavior: "smooth"
+        })
+    }, [latest_idx])
 
     return (
         <ScrollArea style={{ flex: "1 1 0", overflowY: "auto" }} viewportRef={viewport}>
-            <Flex direction="column">
+            <Flex direction="column" gap="md">
                 {display_messages.map(msg => (
                     <ChatEntry key={msg.id} msg={msg} />
                 ))}
@@ -148,7 +152,7 @@ const SideInfo: FC<{
     }, [info])
 
     return (
-        <Stack w={{ sm: "300px" }} p="xl">
+        <Stack flex={{ base: 1, sm: 0 }} miw={{ sm: "300px" }} p="xl">
             <VODInfo info={info} />
             <ChatDisplay playbackPosition={playbackPosition} messages={messages} />
         </Stack>

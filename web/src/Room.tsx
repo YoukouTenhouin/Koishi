@@ -23,6 +23,12 @@ function phImg(width: number, height: number, text: string) {
     return `https://placehold.co/${width}x${height}?text=${encodeURIComponent(text)}`
 }
 
+const cdn_base_url = import.meta.env.VITE_KOISHI_CDN_PREFIX;
+
+function coverUrl(cover: string | null) {
+    return cover && new URL(`/cover/${cover}`, cdn_base_url).href
+}
+
 const VideoEntry: FC<{ video: VideoListEntry }> = ({ video }) => {
     const { uuid, title, cover, timestamp } = video
 
@@ -39,7 +45,7 @@ const VideoEntry: FC<{ video: VideoListEntry }> = ({ video }) => {
                 <Image
                     width={320}
                     height={180}
-                    src={cover ?? phImg(320, 180, "NO COVER")}
+                    src={coverUrl(cover) ?? phImg(320, 180, "NO COVER")}
                     referrerPolicy="no-referrer" />
             </Card.Section>
 

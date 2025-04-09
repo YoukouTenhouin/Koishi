@@ -4,6 +4,7 @@ use serde::{Serialize, Deserialize};
 use tabled::{Tabled, derive::display};
 
 mod create;
+mod set_cover;
 mod upload;
 
 #[derive(Parser)]
@@ -46,6 +47,7 @@ fn display_timestamp<T>(ts: &i64, _rec: &T) -> String {
 #[derive(Subcommand)]
 enum Commands{
     Create(create::Args),
+    SetCover(set_cover::Args),
     Upload(upload::Args),
 }
 
@@ -53,6 +55,7 @@ pub(crate) fn main(args: Args) {
     match args.command {
 	Some(command) => match command {
 	    Commands::Create(args) => create::main(args),
+	    Commands::SetCover(args) => set_cover::main(args),
 	    Commands::Upload(args) => upload::main(args),
 	}
 	None => {}

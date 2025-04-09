@@ -5,6 +5,7 @@ use tabled::{Tabled, derive::display};
 mod create;
 mod get;
 mod list;
+mod list_videos;
 
 #[derive(Parser)]
 pub(crate) struct Args {
@@ -28,7 +29,8 @@ struct RoomInfo {
 enum Commands{
     Create(create::Args),
     Get(get::Args),
-    List
+    List,
+    ListVideos(list_videos::Args),
 }
 
 pub(crate) fn main(args: Args) {
@@ -37,6 +39,7 @@ pub(crate) fn main(args: Args) {
 	    Commands::Create(args) => create::main(args),
 	    Commands::Get(args) => get::main(args),
 	    Commands::List => list::main(),
+	    Commands::ListVideos(args) => list_videos::main(args),
 	}
 	None => {}
     }

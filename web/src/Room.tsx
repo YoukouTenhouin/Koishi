@@ -32,7 +32,7 @@ function coverUrl(cover: string | null) {
 const VideoEntry: FC<{ video: VideoListEntry }> = ({ video }) => {
     const { uuid, title, cover, timestamp } = video
 
-    const date = new Date(timestamp / 1000)
+    const date = new Date(timestamp)
     const navigate = useNavigate()
 
     return (

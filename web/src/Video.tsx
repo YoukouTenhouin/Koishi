@@ -15,7 +15,7 @@ interface VideoInfo {
 
 const VODInfo: FC<{ info: VideoInfo | null }> = ({ info }) => {
     const title = info?.title ?? "PLACEHOLDER"
-    const datetime = new Date((info?.timestamp ?? 0) / 1000)
+    const datetime = new Date(info?.timestamp ?? 0)
 
     return (
         <Card

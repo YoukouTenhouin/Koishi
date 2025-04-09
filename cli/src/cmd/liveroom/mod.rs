@@ -16,7 +16,7 @@ pub(crate) struct Args {
 #[derive(Serialize, Deserialize, Tabled)]
 struct RoomInfo {
     #[tabled(rename="Room ID")]
-    id: u32,
+    id: u64,
     #[tabled(rename="Short ID", display("display::option", ""))]
     short_id: Option<u32>,
     #[tabled(rename="Username")]

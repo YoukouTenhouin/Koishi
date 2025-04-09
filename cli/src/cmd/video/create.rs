@@ -20,7 +20,7 @@ pub(super) struct Args {
     cover: Option<String>,
 
     #[arg(short, long)]
-    room: u32,
+    room: u64,
 }
 
 #[derive(Serialize)]
@@ -28,7 +28,7 @@ struct VideoCreateInfo {
     title: String,
     cover: Option<String>,
     timestamp: i64,
-    room: u32
+    room: u64
 }
 
 fn do_create(
@@ -36,7 +36,7 @@ fn do_create(
     title: String,
     cover: Option<String>,
     timestamp: i64,
-    room: u32
+    room: u64
 ) -> Result<()> {
     let uuid = uuid.unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
 

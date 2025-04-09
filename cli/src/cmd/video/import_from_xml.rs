@@ -21,7 +21,7 @@ pub(super) struct Args {
 
 #[derive(Deserialize, Debug)]
 struct XMLRoomMetadata {
-    room_id: u32,
+    room_id: u64,
     room_title: String,
     live_start_time: String,
 }
@@ -36,7 +36,7 @@ struct VideoCreateInfo {
     title: String,
     cover: Option<String>,
     timestamp: i64,
-    room: u32
+    room: u64
 }
 
 fn do_create(
@@ -44,7 +44,7 @@ fn do_create(
     title: String,
     cover: Option<String>,
     timestamp: i64,
-    room: u32
+    room: u64
 ) -> Result<()> {
     let uuid = uuid.unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
 

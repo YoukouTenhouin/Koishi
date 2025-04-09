@@ -24,7 +24,7 @@ struct VideoInfo {
     #[tabled(rename="Cover URL", display("display::option", ""))]
     cover: Option<String>,
     #[tabled(rename="Room ID")]
-    room: u32,
+    room: u64,
     #[tabled(rename="Date", display("display_timestamp", self))]
     timestamp: i64
 }
@@ -36,7 +36,7 @@ struct VideoInfoWithoutID {
     #[tabled(rename="Cover URL", display("display::option", ""))]
     cover: Option<String>,
     #[tabled(rename="Room ID")]
-    room: u32,
+    room: u64,
     #[tabled(rename="Date", display("display_timestamp", self))]
     timestamp: i64
 }

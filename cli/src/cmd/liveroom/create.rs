@@ -11,7 +11,7 @@ use super::RoomInfo;
 
 #[derive(Parser)]
 pub(super) struct Args {
-    room_id: u32,
+    room_id: u64,
 }
 
 const ROOM_INFO_URL: &str = "https://api.live.bilibili.com/room/v1/Room/get_info";
@@ -25,8 +25,8 @@ struct ResBody {
 
 #[derive(Deserialize)]
 struct ResRoomInfo {
-    uid: u32,
-    room_id: u32,
+    uid: u64,
+    room_id: u64,
     short_id: u32,
 }
 
@@ -41,7 +41,7 @@ struct ResUserCardInfo {
     face: String,
 }
 
-fn get_room_info(room_id: u32) -> Option<ResRoomInfo> {
+fn get_room_info(room_id: u64) -> Option<ResRoomInfo> {
     let url = Url::parse_with_params(ROOM_INFO_URL, &[("room_id", room_id.to_string())]).unwrap();
     let res: ResBody = req::get(url).unwrap().json().unwrap();
     if res.code == 1 {
@@ -52,14 +52,14 @@ fn get_room_info(room_id: u32) -> Option<ResRoomInfo> {
     }
 }
 
-fn get_user_info(uid: u32) -> ResUserInfo {
+fn get_user_info(uid: u64) -> ResUserInfo {
     let url = Url::parse_with_params(USER_INFO_URL, &[("mid", uid.to_string())]).unwrap();
     let res: ResBody = req::get(url).unwrap().json().unwrap();
 
     serde_json::value::from_value(res.data).unwrap()
 }
 
-fn fetch_info(room_id: u32) -> Option<RoomInfo> {
+fn fetch_info(room_id: u64) -> Option<RoomInfo> {
     let room_info = get_room_info(room_id)?;
     let short_id = if room_info.short_id == 0 {
 	None

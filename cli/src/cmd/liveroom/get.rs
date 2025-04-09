@@ -7,11 +7,11 @@ use super::RoomInfo;
 
 #[derive(Parser)]
 pub(super) struct Args {
-    room: u32,
+    room: u64,
 }
 
 
-fn do_get(room_id: u32) -> Result<Option<RoomInfo>> {
+fn do_get(room_id: u64) -> Result<Option<RoomInfo>> {
     let mut path = room_id.to_string();
     path.insert_str(0, "room/");
     let res = api_req::get(path).send()?;

@@ -229,6 +229,9 @@ fn do_upload(
 	let offset = (i as u64) * part_size;
 	let size = min(part_size, f_size - offset);
 	let etag = upload_part(path, url, offset, size, &pb, retry)?;
+	if !progress {
+	    println!("Part uploaded {}/{}", i+1, parts);
+	}
 	etags.push(etag);
     }
 

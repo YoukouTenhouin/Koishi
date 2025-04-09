@@ -1,6 +1,8 @@
 import { FC, useEffect, useState } from 'react'
-import { Card, Flex, Group, Image, Text } from '@mantine/core'
+import { AppShell, Card, Flex, Group, Image, Text } from '@mantine/core'
 import { useNavigate } from 'react-router'
+
+import SiteTitle from './components/SiteTitle'
 
 interface RoomListEntry {
     id: number,
@@ -44,13 +46,23 @@ const Home: FC = () => {
     }, [])
 
     return (
-        <Flex
-            gap="md"
-            wrap="wrap"
-            justify="center"
-        >
-            {rooms.map(r => <Entry key={r.id} room={r} />)}
-        </Flex>
+        <AppShell
+            header={{ height: 60 }}
+            padding="md">
+            <AppShell.Header>
+                <Group h="100%" px="md">
+                    <SiteTitle />
+                </Group>
+            </AppShell.Header>
+            <AppShell.Main>
+                <Flex
+                    gap="md"
+                    wrap="wrap"
+                >
+                    {rooms.map(r => <Entry key={r.id} room={r} />)}
+                </Flex>
+            </AppShell.Main>
+        </AppShell>
     )
 }
 

@@ -1,64 +1,33 @@
 import { AwsClient } from 'aws4fetch'
+import * as v from 'valibot'
 
-interface Env {
-    DB: D1Database,
-    S3_BUCKET: string,
-    S3_ENDPOINT: string,
-    S3_KEY_ID: string
-    S3_KEY: string,
-}
+import { obj_urls } from '@flib/objects'
+import { video_by_uuid } from '@flib/queries'
+import { get_req_body } from '@flib/requests'
+import { res } from '@flib/responses'
+import { Env } from '@flib/types'
 
-interface VideoInfo {
-    title: string,
-    cover: string | null,
-    room: number
-    timestamp: number
-}
+const ReqBody = v.object({
+    size: v.number(),
+    part_size: v.number()
+})
 
-interface RequestBody {
-    size: number
-    part_size: number
-}
-
-async function get_video(uuid: string, db: D1Database): Promise<VideoInfo | null> {
-    const ps = db.prepare(
-        "SELECT title, cover, room, timestamp FROM video WHERE uuid = UNHEX(?)"
-    ).bind(uuid)
-    const { success, results } = await ps.run()
-    if (!success) {
-        throw Error("DB transaction failed")
-    }
-    if (!results.length) {
-        return null
-    }
-
-    const { title, cover, room, timestamp } = results[0]
-
-    return {
-        title: title as string,
-        cover: cover as string | null,
-        room: room as number,
-        timestamp: timestamp as number
-    }
-}
-
-export const onRequest: PagesFunction<Env> = async (context) => {
-    if (context.request.method != "POST") {
-        return Response.json({ error: "method not allowed" }, { status: 405 })
-    }
-
+export const onRequestPost: PagesFunction<Env> = async (context) => {
     const uuid = context.params.uuid as string
 
-    if (!/^[a-f0-9]{32}$/i.test(uuid)) {
-        return Response.json({ error: "invalid uuid format" }, { status: 400 })
+    const req_body = await get_req_body(context.request, ReqBody)
+    if (!req_body.success) {
+        return res.unprocessable_entity()
     }
-
-    const { size, part_size } = await context.request.json<RequestBody>()
+    const { size, part_size } = req_body.output
     const parts = Math.ceil(size / part_size)
 
-    const video = await get_video(uuid, context.env.DB)
+    const { success, video, error } = await video_by_uuid(context.env.DB, uuid)
+    if (!success) {
+        return res.db_transaction_error(error)
+    }
     if (!video) {
-        return Response.json({ error: "video not found" }, { status: 404 })
+        return res.not_found(`Video ${uuid} not found`)
     }
 
     const aws = new AwsClient({
@@ -66,7 +35,7 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         secretAccessKey: context.env.S3_KEY
     });
 
-    const obj_url = `${context.env.S3_ENDPOINT}/${context.env.S3_BUCKET}/video/${video.room}/${uuid.toLowerCase()}`
+    const obj_url = obj_urls.video(context.env, video)
 
     // init multipart upload
     const init = await aws.fetch(

@@ -1,22 +1,21 @@
-interface Env {
-    DB: D1Database
-}
+import { run_query } from '@flib/queries'
+import { res } from '@flib/responses'
+import { Env, Video } from '@flib/types'
 
-export const onRequest: PagesFunction<Env> = async (context) => {
-    if (context.request.method != "GET") {
-        return Response.json({ "error": "method not allowed" }, { status: 405 })
-    }
-
+export const onRequestGet: PagesFunction<Env> = async (context) => {
     const room = parseInt(context.params.room as string)
+
+    const q_params = new URL(context.request.url).searchParams
+    const limit = parseInt(q_params.get("limit") ?? "50", 10)
+    const offset = parseInt(q_params.get("offset") ?? "0", 10)
 
     const ps = context.env.DB.prepare(
         "SELECT LOWER(HEX(uuid)) as uuid, title, cover, timestamp FROM video "
-        + "WHERE room = ? ORDER BY timestamp DESC"
-    ).bind(room)
-    const { success, results } = await ps.run()
-    if (!success) {
-        return Response.json({ "error": "DB transaction error" }, { status: 500 })
+        + "WHERE room = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?"
+    ).bind(room, limit, offset)
+    const ret = await run_query<Omit<Video, "room">>(ps)
+    if (!ret.success) {
+        return res.db_transaction_error(ret.error)
     }
-
-    return Response.json({ success: true, data: results })
+    return res.ok(ret.results)
 }

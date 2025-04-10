@@ -1,46 +1,42 @@
-interface Env {
-    DB: D1Database
-}
+import * as v from 'valibot'
 
-interface RoomInfo {
-    id: number
-    short_id: number
-    username: string
-    image: string
-}
+import { run_query } from '@flib/queries'
+import { get_req_body } from '@flib/requests'
+import { res } from '@flib/responses'
+import { Env, Room } from '@flib/types'
 
-async function insert(room_info: RoomInfo, db: D1Database): Promise<Response> {
-    const { id, short_id, username, image } = room_info
+const ReqBody = v.object({
+    id: v.number(),
+    short_id: v.nullable(v.number()),
+    username: v.string(),
+    image: v.string()
+})
+
+async function insert(room: Room, db: D1Database): Promise<Response> {
+    const { id, short_id, username, image } = room
     const ps = db.prepare(
-        "INSERT INTO room (id, short_id, username, image) VALUES (?, ?, ?, ?)"
+        "INSERT OR IGNORE INTO room (id, short_id, username, image) VALUES (?, ?, ?, ?)"
     ).bind(id, short_id, username, image)
-    try {
-        const { success } = await ps.run()
-        if (success) {
-            return Response.json({ "success": true })
-        } else {
-            return Response.json({ "error": "DB transaction failed" }, { status: 500 })
-        }
-    } catch (e) {
-        console.error("DB error:", e)
-        return Response.json({ "error": `DB transaction failed: ${JSON.stringify(e)}` },
-            { status: 500 })
+    const ret = await run_query(ps)
+    if (!ret.success) {
+        return res.db_transaction_error(ret.error)
+    } else if (ret.meta.changes == 0) {
+        return res.conflict(`Room ${room.id} already exists`)
     }
+    return res.ok()
 }
 
 async function get(room_id: number, db: D1Database): Promise<Response> {
     const ps = db.prepare(
         "SELECT id, short_id, username, image FROM room WHERE id = ?"
     ).bind(room_id)
-    const { success, results } = await ps.run()
-    if (success) {
-        if (!results.length) {
-            return Response.json({ "error": "not found" }, { status: 400 })
-        }
-        return Response.json({ "success": true, data: results[0] })
-    } else {
-        return Response.json({ "error": "DB transaction failed" }, { status: 500 })
+    const ret = await run_query<Room>(ps)
+    if (!ret.success) {
+        return res.db_transaction_error(ret.error)
+    } else if (!ret.results.length) {
+        return res.not_found(`Room ${room_id} not found`)
     }
+    return res.ok(ret.results[0])
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
@@ -48,9 +44,12 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         case "GET":
             return get(parseInt(context.params.room as string), context.env.DB)
         case "POST":
-            const body = await context.request.json<RoomInfo>()
+            const { success, output: body } = await get_req_body(context.request, ReqBody)
+            if (!success) {
+                return res.unprocessable_entity()
+            }
             return insert(body, context.env.DB)
         default:
-            return Response.json({ "error": "method not allowed" }, { status: 405 })
+            return res.method_not_allowed()
     }
 }

@@ -1,74 +1,44 @@
-interface Env {
-    DB: D1Database
-}
+import * as v from 'valibot'
 
-interface VideoInfo {
-    uuid: string,
-    title: string,
-    cover: string | null,
-    room: number
-    timestamp: number
-}
+import { Env, Video } from '@flib/types'
+import { run_query, video_by_uuid } from '@flib/queries'
+import { get_req_body } from '@flib/requests'
+import { res } from '@flib/responses'
 
-async function insert(uuid: string, v: VideoInfo, db: D1Database) {
+async function insert(uuid: string, v: Omit<Video, "uuid">, db: D1Database) {
     const ps = db.prepare(
-        "INSERT INTO video (uuid, title, cover, room, timestamp) "
+        "INSERT OR IGNORE INTO video (uuid, title, cover, room, timestamp) "
         + "VALUES (UNHEX(?), ?, ?, ?, ?)"
     ).bind(uuid, v.title, v.cover, v.room, v.timestamp)
-    try {
-        const { success } = await ps.run()
-        if (!success) {
-            return Response.json({ error: "DB transaction error" }, { status: 500 })
-        }
-        return Response.json({ success: true })
-    } catch (e) {
-        return Response.json({ error: "DB transaction error" }, { status: 500 })
+    const ret = await run_query(ps)
+    if (!ret.success) {
+        return res.db_transaction_error(ret.error)
+    } else if (ret.meta.changes == 0) {
+        return res.conflict(`Video ${uuid} already exists`)
     }
+    return res.ok()
 }
 
-async function fetch_video(id: string, db: D1Database): Promise<[boolean, VideoInfo | null]> {
-    const ps = db.prepare(
-        "SELECT LOWER(HEX(uuid)) as uuid, title, cover, room, timestamp FROM video "
-        + "WHERE uuid = UNHEX(?)"
-    ).bind(id)
-
-    const { success, results } = await ps.run()
-    if (!success) {
-        return [false, null]
-    } else if (!results.length) {
-        return [true, null]
-    } else {
-        const { uuid, title, cover, room, timestamp } = results[0]
-        return [true, {
-            uuid: uuid as string,
-            title: title as string,
-            cover: cover as string | null,
-            room: room as number,
-            timestamp: timestamp as number,
-        }]
-    }
-}
-
-async function get(id: string, db: D1Database) {
-    const [success, video] = await fetch_video(id, db)
+async function fetch(id: string, db: D1Database) {
+    const { success, video, error } = await video_by_uuid(db, id)
     if (success) {
         if (video === null) {
-            return Response.json({ error: "video not found" }, { status: 404 })
+            return res.not_found(`Video ${id} not found`)
         }
-        return Response.json({ success: true, data: video })
+        return res.ok(video)
     } else {
-        return Response.json({ error: "DB transaction error" }, { status: 500 })
+        return res.db_transaction_error(error)
     }
 }
 
-async function update(id: string, d: Partial<VideoInfo>, db: D1Database) {
-    const [fetch_success, video] = await fetch_video(id, db)
+async function update(id: string, d: Partial<Video>, db: D1Database) {
+    const { success: fetch_success, video, error: fetch_error } = await video_by_uuid(db, id)
     if (fetch_success) {
         if (video === null) {
-            return Response.json({ error: "video not found" }, { status: 404 })
+            return res.not_found(`Video ${id} not found`)
         }
     } else {
-        return Response.json({ error: "DB transaction error" }, { status: 500 })
+        return res.db_transaction_error(fetch_error)
     }
 
     const { title, cover, timestamp } = d
@@ -81,30 +51,54 @@ async function update(id: string, d: Partial<VideoInfo>, db: D1Database) {
         timestamp ?? video.timestamp,
         id
     )
-    const { success } = await ps.run()
-    if (!success) {
-        return Response.json({ error: "DB transaction error" }, { status: 500 })
+    const ret = await run_query(ps)
+    if (!ret.success) {
+        return res.db_transaction_error(ret.error)
     }
-    return Response.json({ success: true })
+    return res.ok()
+}
+
+const ReqBody = v.object({
+    title: v.pipe(v.string(), v.nonEmpty()),
+    cover: v.nullable(v.string()),
+    room: v.number(),
+    timestamp: v.number()
+})
+
+async function post(uuid: string, db: D1Database, request: Body) {
+    const { success, output } = await get_req_body(request, ReqBody)
+    if (!success) {
+        return res.unprocessable_entity()
+    }
+    return await insert(uuid, output, db)
+}
+
+async function get(uuid: string, db: D1Database) {
+    return await fetch(uuid, db)
+}
+
+async function put(uuid: string, db: D1Database, request: Body) {
+    const { success, output } = await get_req_body(request, v.partial(ReqBody))
+    if (!success) {
+        return res.unprocessable_entity()
+    }
+    return await update(uuid, output, db)
 }
 
 export const onRequest: PagesFunction<Env> = async (context) => {
     const uuid = context.params.uuid as string
-
     if (!/^[a-f0-9]{32}$/i.test(uuid)) {
         return Response.json({ error: "invalid uuid format" }, { status: 400 })
     }
 
     switch (context.request.method) {
         case "POST":
-            const video_info = await context.request.json<VideoInfo>()
-            return await insert(uuid, video_info, context.env.DB)
+            return await post(uuid, context.env.DB, context.request)
         case "GET":
             return await get(uuid, context.env.DB)
         case "PUT":
-            const diff = await context.request.json<Partial<VideoInfo>>()
-            return await update(uuid, diff, context.env.DB)
+            return await put(uuid, context.env.DB, context.request)
         default:
-            return Response.json({ error: "method not supported" }, { status: 405 })
+            return res.method_not_allowed()
     }
 }

@@ -6,6 +6,11 @@
     "types": ["./types.d.ts"],
     "moduleResolution": "bundler",
     "esModuleInterop": true,
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+
+    "paths": {
+      "@func/*": ["../functions/*"],
+      "@flib/*": ["../functions_libs/*"],
+    }
   }
 }

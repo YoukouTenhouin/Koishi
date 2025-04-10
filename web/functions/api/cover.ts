@@ -1,38 +1,37 @@
 import { AwsClient } from 'aws4fetch'
+import * as v from 'valibot'
 
-interface Env {
-    DB: D1Database,
-    S3_BUCKET: string,
-    S3_ENDPOINT: string,
-    S3_KEY_ID: string
-    S3_KEY: string,
-}
+import { Env } from '@flib/types'
+import { get_req_body } from '@flib/requests'
+import { res } from '@flib/responses'
+import { obj_urls } from '@flib/objects'
 
-interface RequestBody {
-    hash: string
-}
+const ReqBody = v.object({
+    hash: v.pipe(v.string(), v.nonEmpty())
+})
 
-export const onRequest: PagesFunction<Env> = async (context) => {
-    if (context.request.method != "POST") {
-        return Response.json({ error: "method not allowed" }, { status: 405 })
+export const onRequestPost: PagesFunction<Env> = async (context) => {
+    const { success, output } = await get_req_body(context.request, ReqBody)
+    if (!success) {
+        return res.unprocessable_entity()
     }
-
-    const { hash } = await context.request.json<RequestBody>()
+    const { hash } = output
 
     const aws = new AwsClient({
         accessKeyId: context.env.S3_KEY_ID,
         secretAccessKey: context.env.S3_KEY
     });
 
-    const obj_url = `${context.env.S3_ENDPOINT}/${context.env.S3_BUCKET}/cover/${hash.toLowerCase()}`
+    const obj_url = obj_urls.cover(context.env, hash)
     const headRes = await aws.fetch(obj_url, { method: 'HEAD' });
 
     if (headRes.status === 200) {
-        return Response.json({ success: true, data: { exists: true, url: null } });
+        return res.ok({ exists: true, url: null });
     }
 
     if (headRes.status !== 404) {
-        return Response.json({ error: "unexpected response from S3" }, { status: 500 });
+        const xml = await headRes.text()
+        return res.s3_error("Unexpected response from S3", { xml })
     }
 
     const signed = await aws.sign(obj_url, {
@@ -40,11 +39,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
         aws: { signQuery: true }
     });
 
-    return Response.json({
-        success: true,
-        data: {
-            exists: false,
-            url: signed.url
-        }
+    return res.ok({
+        exists: false,
+        url: signed.url
     })
 }

@@ -6,7 +6,7 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const room = parseInt(context.params.room as string)
 
     const q_params = new URL(context.request.url).searchParams
-    const limit = parseInt(q_params.get("limit") ?? "50", 10)
+    const limit = Math.min(100, parseInt(q_params.get("limit") ?? "50", 10))
     const offset = parseInt(q_params.get("offset") ?? "0", 10)
 
     const ps = context.env.DB.prepare(

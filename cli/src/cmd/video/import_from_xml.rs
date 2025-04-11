@@ -1,7 +1,7 @@
 use chrono::{DateTime, Utc};
 use clap::Parser;
 use quick_xml::de::from_str;
-use serde::{Serialize, Deserialize};
+use serde::Deserialize;
 use std::{
     fs::File,
     io::Read,
@@ -9,12 +9,14 @@ use std::{
 };
 use uuid::Uuid;
 
-use crate::api_req::{self, Result, APIResponse};
+use crate::api;
 
 #[derive(Parser)]
 pub(super) struct Args {
     #[arg(short, long)]
     uuid: Option<String>,
+    #[arg(short, long)]
+    cover: Option<String>,
 
     path: PathBuf,
 }
@@ -29,34 +31,6 @@ struct XMLRoomMetadata {
 #[derive(Deserialize)]
 struct XMLRoot {
     metadata: XMLRoomMetadata
-}
-
-#[derive(Serialize)]
-struct VideoCreateInfo {
-    title: String,
-    cover: Option<String>,
-    timestamp: i64,
-    room: u64
-}
-
-fn do_create(
-    uuid: Option<String>,
-    title: String,
-    cover: Option<String>,
-    timestamp: i64,
-    room: u64
-) -> Result<()> {
-    let uuid = uuid.unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
-
-    let video = VideoCreateInfo { title, cover, room, timestamp };
-
-    let path = format!("video/{uuid}");
-    let res = api_req::post(path).json(&video).send()?;
-    let body: APIResponse = res.json()?;
-
-    println!("Created video {uuid}");
-
-    Ok(body.unwrap_or_error_out())
 }
 
 fn read_xml(path: &Path) -> XMLRoomMetadata {
@@ -76,20 +50,18 @@ fn read_xml(path: &Path) -> XMLRoomMetadata {
 }
 
 pub(super) fn main(args: Args) {
+    let uuid = args.uuid.unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
     let metadata = read_xml(&args.path);
     let ts = metadata.live_start_time.parse::<DateTime<Utc>>()
 	.expect("Failed to parse live_start_time");
 
-    let result = do_create(
-	args.uuid,
+    api::video::create(
+	&uuid,
 	metadata.room_title,
-	None,
+	args.cover,
 	ts.timestamp_millis(),
 	metadata.room_id
-    );
+    ).unwrap();
 
-    if let Err(e) = result {
-	eprintln!("API Request Error: {e}");
-	std::process::exit(-1)
-    }
+    println!("Created video {uuid} from XML");
 }

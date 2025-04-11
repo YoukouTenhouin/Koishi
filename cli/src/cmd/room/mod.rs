@@ -1,6 +1,4 @@
 use clap::{Parser, Subcommand};
-use serde::{Serialize, Deserialize};
-use tabled::{Tabled, derive::display};
 
 mod create;
 mod get;
@@ -13,23 +11,11 @@ pub(crate) struct Args {
     command: Option<Commands>
 }
 
-#[derive(Serialize, Deserialize, Tabled)]
-struct RoomInfo {
-    #[tabled(rename="Room ID")]
-    id: u64,
-    #[tabled(rename="Short ID", display("display::option", ""))]
-    short_id: Option<u32>,
-    #[tabled(rename="Username")]
-    username: String,
-    #[tabled(rename="Image URL")]
-    image: String,
-}
-
 #[derive(Subcommand)]
 enum Commands{
     Create(create::Args),
     Get(get::Args),
-    List,
+    List(list::Args),
     ListVideos(list_videos::Args),
 }
 
@@ -38,7 +24,7 @@ pub(crate) fn main(args: Args) {
 	Some(command) => match command {
 	    Commands::Create(args) => create::main(args),
 	    Commands::Get(args) => get::main(args),
-	    Commands::List => list::main(),
+	    Commands::List(args) => list::main(args),
 	    Commands::ListVideos(args) => list_videos::main(args),
 	}
 	None => {}

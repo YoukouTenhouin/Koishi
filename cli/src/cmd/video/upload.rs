@@ -1,15 +1,12 @@
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 use reqwest::blocking::Client;
-use serde::{Serialize, Deserialize};
 use std::{
     cmp::min, fs::File, io::{self, BufReader, Read, Seek, SeekFrom}, path::{Path, PathBuf}
 };
-use tabled::{Table, settings::Style};
+use tabled::{settings::{location::ByColumnName, Remove, Style}, Table};
 
-use crate::api_req::{self, APIResponse, APIResponseWithData};
-
-use super::VideoInfoWithoutID;
+use crate::api;
 
 #[derive(Parser)]
 pub(super) struct Args {
@@ -24,28 +21,10 @@ pub(super) struct Args {
     path: PathBuf,
 }
 
-#[derive(Serialize)]
-struct ReqUploadStart {
-    size: u64,
-    part_size: u64
-}
-
-#[derive(Serialize)]
-struct ReqUploadFinish {
-    upload_id: String,
-    etags: Vec<String>,
-}
-
-#[derive(Deserialize)]
-struct ResUploadStart {
-    urls: Vec<String>,
-    upload_id: String,
-    video: VideoInfoWithoutID
-}
-
-fn print_video_info(i: &VideoInfoWithoutID) {
+fn print_video_info(i: &api::video::Video) {
     let mut table = Table::new(&[i]);
     table.with(Style::modern());
+    table.with(Remove::column(ByColumnName::new("Cover URL")));
 
     println!("{table}");
 }
@@ -125,19 +104,6 @@ impl<R: Read> Read for UploadProgressReadWrapper<R> {
     }
 }
 
-fn start_upload(uuid: &str, file_size: u64, part_size: u64) -> api_req::Result<ResUploadStart> {
-    let url = format!("video/{uuid}/upload_start");
-    let req_body = ReqUploadStart {
-	size: file_size,
-	part_size,
-    };
-    let res = api_req::post(url)
-        .json(&req_body)
-        .send()?;
-    let res_body: APIResponseWithData<ResUploadStart> = res.json()?;
-    Ok(res_body.unwrap_or_error_out())
-}
-
 fn do_upload_part(
     path: &Path, url: &str, offset: u64, size: u64, pb: &Option<UploadProgress>
 ) -> Result<String, Box<dyn std::error::Error>> {
@@ -192,16 +158,6 @@ fn upload_part(
     }
 }
 
-fn finish_upload(uuid: &str, upload_id: String, etags: Vec<String>) -> api_req::Result<()> {
-    let url = format!("video/{uuid}/upload_finish");
-    let req_body = ReqUploadFinish{ upload_id, etags };
-
-    let res = api_req::post(url)
-        .json(&req_body)
-        .send()?;
-    let res: APIResponse = res.json()?;
-    Ok(res.unwrap_or_error_out())
-}
 
 fn do_upload(
     uuid: &str, path: &Path, part_size: u64, progress: bool, retry: u64
@@ -211,7 +167,7 @@ fn do_upload(
 
 
     std::println!("Initiating multi-part upload");
-    let upload_start = start_upload(uuid, f_size, part_size)?;
+    let upload_start = api::video::upload_start(uuid, f_size, part_size)?;
     print_video_info(&upload_start.video);
 
     let parts = upload_start.urls.len() as u64;
@@ -235,7 +191,7 @@ fn do_upload(
 	etags.push(etag);
     }
 
-    finish_upload(uuid, upload_start.upload_id, etags)?;
+    api::video::upload_finish(uuid, upload_start.upload_id, etags)?;
     pb.map(|v| v.finish());
 
     Ok(())
@@ -244,18 +200,8 @@ fn do_upload(
 pub(crate) fn main(args: Args) {
     std::println!("Uploading video file {path}", path=args.path.display());
 
-    let ret = do_upload(
-	&args.uuid, &args.path, args.part_size, args.progress, args.retry_part);
-    match ret {
-	Ok(()) => println!("Upload finished"),
-	Err(e) => {
-	    eprintln!("Error occured during uploading: {e}");
-
-            let mut source = e.source();
-            while let Some(e) = source {
-		eprintln!("Caused by: {}", e);
-		source = e.source();
-            }
-	}
-    }
+    do_upload(
+	&args.uuid, &args.path, args.part_size, args.progress, args.retry_part)
+    .unwrap();
+   println!("Upload finished")
 }

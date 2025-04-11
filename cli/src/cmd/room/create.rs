@@ -4,10 +4,7 @@ use serde_json::Value;
 use reqwest::Url;
 use reqwest::blocking as req;
 
-use crate::api_req::{self, APIResponse};
-use crate::global_options;
-
-use super::RoomInfo;
+use crate::api;
 
 #[derive(Parser)]
 pub(super) struct Args {
@@ -59,7 +56,7 @@ fn get_user_info(uid: u64) -> ResUserInfo {
     serde_json::value::from_value(res.data).unwrap()
 }
 
-fn fetch_info(room_id: u64) -> Option<RoomInfo> {
+fn fetch_info(room_id: u64) -> Option<api::room::Room> {
     let room_info = get_room_info(room_id)?;
     let short_id = if room_info.short_id == 0 {
 	None
@@ -69,33 +66,13 @@ fn fetch_info(room_id: u64) -> Option<RoomInfo> {
 
     let user_info = get_user_info(room_info.uid);
 
-    let ret = RoomInfo {
+    let ret = api::room::Room {
 	id: room_info.room_id,
 	short_id,
 	username: user_info.card.name,
 	image: user_info.card.face,
     };
     Some(ret)
-}
-
-fn do_create(info: &RoomInfo) -> api_req::Result<()> {
-    println!("Creating room {}", info.id);
-    if global_options::DRY.get().unwrap().clone() {
-	println!("Skipping request due to being dry run");
-	return Ok(())
-    }
-
-    let mut path = info.id.to_string();
-    path.insert_str(0, "room/");
-    let res: APIResponse = api_req::post(path)
-        .json(info)
-        .send()?
-	.json()?;
-
-    res.unwrap_or_error_out();
-
-    println!("Room {} created", info.id);
-    Ok(())
 }
 
 pub(super) fn main(args: Args) {
@@ -113,8 +90,8 @@ pub(super) fn main(args: Args) {
     println!("\tName:\t\t{}", info.username);
     println!("\tImage:\t\t{}", info.image);
 
-    if let Err(e) = do_create(&info) {
-	eprintln!("API Request Error: {e}");
-	std::process::exit(-1);
-    }
+    let id = info.id;
+    println!("Creating room {}", info.id);
+    api::room::create(info).unwrap();
+    println!("Room {} created", id);
 }

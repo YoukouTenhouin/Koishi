@@ -55,5 +55,5 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (complete.status != 200) {
         return res.s3_error(`Status ${complete.status} from S3`, { xml: res_text })
     }
-    return res.ok({ xml: res_text })
+    return res.ok()
 }

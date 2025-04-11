@@ -15,19 +15,6 @@ pub(crate) struct Args {
     command: Option<Commands>
 }
 
-#[derive(Serialize, Deserialize, Tabled)]
-struct VideoInfo {
-    #[tabled(rename="UUID")]
-    uuid: String,
-    #[tabled(rename="Title")]
-    title: String,
-    #[tabled(rename="Cover URL", display("display::option", ""))]
-    cover: Option<String>,
-    #[tabled(rename="Room ID")]
-    room: u64,
-    #[tabled(rename="Date", display("display_timestamp", self))]
-    timestamp: i64
-}
 
 #[derive(Serialize, Deserialize, Tabled)]
 struct VideoInfoWithoutID {

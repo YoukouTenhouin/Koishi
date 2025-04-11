@@ -73,11 +73,11 @@ const Room: FC = () => {
         const loader = async () => {
             const room_info_res = await fetch(`/api/room/${room_id}`)
             const room_info_body = await room_info_res.json()
-            setRoomInfo(room_info_body.data)
+            setRoomInfo(room_info_body.result)
 
             const video_res = await fetch(`/api/room/${room_id}/video`)
             const video_body = await video_res.json()
-            setVideos(video_body.data)
+            setVideos(video_body.result)
         }
         loader()
     }, [room_id])

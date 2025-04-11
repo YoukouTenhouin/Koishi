@@ -1,12 +1,12 @@
 use clap::Parser;
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
-use reqwest::blocking::Client;
 use std::{
     cmp::min, fs::File, io::{self, BufReader, Read, Seek, SeekFrom}, path::{Path, PathBuf}
 };
 use tabled::{settings::{location::ByColumnName, Remove, Style}, Table};
 
 use crate::api;
+use crate::helpers::s3;
 
 #[derive(Parser)]
 pub(super) struct Args {
@@ -105,7 +105,8 @@ impl<R: Read> Read for UploadProgressReadWrapper<R> {
 }
 
 fn do_upload_part(
-    path: &Path, url: &str, offset: u64, size: u64, pb: &Option<UploadProgress>
+    uploader: &s3::Uploader, path: &Path, url: &str,
+    offset: u64, size: u64, pb: &Option<UploadProgress>
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut f = File::open(path)?;
     f.seek(SeekFrom::Start(offset))?;
@@ -113,39 +114,32 @@ fn do_upload_part(
     let part_reader = f.take(size);
     let buf_reader = BufReader::new(part_reader);
 
-    let body = if let Some(pb) = pb {
-	reqwest::blocking::Body::sized(pb.start_part(buf_reader, size), size)
+    let req = uploader
+	.url(url)
+	.mimetype("video/mp4");
+
+    let req = if let Some(pb) = pb {
+	req.from_reader_sized(pb.start_part(buf_reader, size), size)
     } else {
-	reqwest::blocking::Body::sized(buf_reader, size)
+	req.from_reader_sized(buf_reader, size)
     };
 
-    let client = Client::builder()
-        .timeout(None)
-        .build()?;
-    let res = client.put(url)
-	.header("Content-Type", "video/mp4")
-	.body(body)
-	.send()?;
-    let etag = res.headers()
-        .get("ETag")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("")
-        .to_string();
+    let res = req.upload()?;
 
     if let Some(pb) = pb {
 	pb.finish_part();
     }
 
-    Ok(etag)
+    Ok(res.etag.unwrap_or_else(|| "".to_string()))
 }
 
 fn upload_part(
-    path: &Path, url: &str, offset: u64, size: u64, pb: &Option<UploadProgress>,
-    retry: u64
+    uploader: &s3::Uploader, path: &Path, url: &str, offset: u64, size: u64,
+    pb: &Option<UploadProgress>, retry: u64
 ) -> Result<String, Box<dyn std::error::Error>> {
     let mut retry_count = 0;
     loop {
-	let result = do_upload_part(path, url, offset, size, pb);
+	let result = do_upload_part(uploader, path, url, offset, size, pb);
 	if result.is_ok() {
 	    return result
 	}
@@ -181,10 +175,12 @@ fn do_upload(
 
     let mut etags: Vec<String> = Vec::with_capacity(parts as usize);
 
+    let uploader = s3::Uploader::new()?;
+
     for (i, url) in upload_start.urls.iter().enumerate() {
 	let offset = (i as u64) * part_size;
 	let size = min(part_size, f_size - offset);
-	let etag = upload_part(path, url, offset, size, &pb, retry)?;
+	let etag = upload_part(&uploader, path, url, offset, size, &pb, retry)?;
 	if !progress {
 	    println!("Part uploaded {}/{}", i+1, parts);
 	}

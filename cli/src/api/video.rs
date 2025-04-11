@@ -1,8 +1,9 @@
 use serde::{Deserialize, Serialize};
+use std::{error, path::Path, result, time::Duration };
 use tabled::{Tabled, derive::display};
 
 use crate::global_options;
-use crate::helpers;
+use crate::helpers::{self, s3};
 
 use super::{ Result, request::{self, *} };
 
@@ -103,7 +104,7 @@ pub(crate) fn update(
 	.api_result()
 }
 
-pub(crate) fn metadata_upload_url(uuid: &str) -> Result<String> {
+fn metadata_upload_url(uuid: &str) -> Result<String> {
     if global_options::DRY.get().unwrap().clone() {
 	println!("skipping request due to being dry run");
 	return Ok("".into())
@@ -114,6 +115,23 @@ pub(crate) fn metadata_upload_url(uuid: &str) -> Result<String> {
 	.api_result()?;
 
     Ok(res.url)
+}
+
+pub(crate) fn upload_metadata<P: AsRef<Path>>(uuid: &str, path: P)
+					      -> result::Result<(), Box<dyn error::Error>>
+{
+    let url = metadata_upload_url(uuid)?;
+
+    if global_options::DRY.get().unwrap().clone() {
+	return Ok(())
+    }
+
+    s3::Uploader::with_timeout(Duration::from_secs(300))?
+        .url(url)
+        .from_file_path(path)?
+	.upload()?;
+
+    Ok(())
 }
 
 pub(crate) fn upload_start(uuid: &str, file_size: u64, part_size: u64)

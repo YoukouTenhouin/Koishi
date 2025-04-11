@@ -1,5 +1,4 @@
 use serde::{de::DeserializeOwned, Deserialize};
-use std::any::TypeId;
 use reqwest::{blocking::{self as req, RequestBuilder, Response}, Url};
 
 use crate::global_options;
@@ -8,9 +7,7 @@ use super::{Result, ServerError};
 
 #[derive(Deserialize)]
 pub(crate) struct APISuccess<T> {
-    #[allow(dead_code)]
-    success: bool,
-    data: Option<T>,
+    result: T,
 }
 
 #[derive(Deserialize)]
@@ -18,17 +15,6 @@ pub(crate) struct APISuccess<T> {
 enum APIRawResult<T> {
     Success(APISuccess<T>),
     Error(ServerError),
-}
-
-fn get_auth_key() -> Option<String> {
-    global_options::AUTH_KEY.get()
-        .unwrap()
-        .as_ref()
-	.map(|s| {
-	    let mut auth = "Bearer ".to_owned();
-	    auth.push_str(s.as_str());
-	    auth
-	})
 }
 
 fn concat_api_url<P: AsRef<str>>(path: P) -> Url {
@@ -64,10 +50,12 @@ pub(super) trait APIRequestBuilder {
 
 impl APIRequestBuilder for RequestBuilder {
     fn api_auth(self) -> Self {
-	self.header(
-	    "Authorization",
-	    get_auth_key().expect("Authorization key required")
-	)
+	let token = global_options::AUTH_KEY.get()
+	    .expect("Authorization key must be initialized")
+	    .as_ref()
+	    .expect("Authorization key required");
+
+	self.bearer_auth(token)
     }
 
     fn limit_offset(self, limit: u64, offset: u64) -> Self {
@@ -87,12 +75,7 @@ impl APIResult for Response {
 	let raw: APIRawResult<T> = self.json()?;
 	match raw {
 	    APIRawResult::Success(success) => {
-		if TypeId::of::<T>() == TypeId::of::<()>() {
-		    Ok(serde_json::from_value::<T>(serde_json::Value::Null).unwrap())
-		} else {
-		    let data = success.data.expect("Server should send an 'data' field; got none");
-		    Ok(data)
-		}
+		Ok(success.result)
 	    }
 	    APIRawResult::Error(err) => Err(err.into()),
 	}

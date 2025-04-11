@@ -5,8 +5,8 @@ function error_wrapper(status: number, err_type: string) {
 }
 
 export namespace res {
-    export function ok(data?: any) {
-        return Response.json({ success: true, data })
+    export function ok(result: any | null = null) {
+        return Response.json({ result })
     }
 
     export const bad_request = error_wrapper(400, "bad_request")

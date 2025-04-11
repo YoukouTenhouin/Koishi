@@ -59,12 +59,5 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
         urls.push(signed.url);
     }
 
-    return Response.json({
-        success: true,
-        data: {
-            urls,
-            upload_id,
-            video,
-        }
-    })
+    return res.ok({ urls, upload_id, video })
 }

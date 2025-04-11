@@ -1,6 +1,16 @@
 import { FC, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router';
-import { AppShell, Card, Flex, Group, ScrollArea, Skeleton, Stack, Text, useMatches } from '@mantine/core'
+import {
+    AppShell,
+    Card,
+    Flex,
+    Group,
+    ScrollArea,
+    Skeleton,
+    Stack,
+    Text,
+    useMatches
+} from '@mantine/core'
 
 import SiteTitle from './components/SiteTitle';
 
@@ -306,7 +316,7 @@ const Video: FC = () => {
             const res = await fetch(`/api/video/${video_id}`)
             const body = await res.json()
 
-            setVideo(body.data)
+            setVideo(body.result)
         }
         loader()
     }, [video_id])
@@ -337,6 +347,7 @@ const Video: FC = () => {
                             style={{
                                 flex: videoPlayerFlex,
                                 minWidth: 0,
+                                minHeight: 0,
                                 objectFit: "contain",
                                 backgroundColor: "black"
                             }}

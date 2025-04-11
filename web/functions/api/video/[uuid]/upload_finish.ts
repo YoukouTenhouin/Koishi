@@ -37,8 +37,10 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
     <CompleteMultipartUpload>
-    ${etags.map((t, i) => `<Part><PartNumber>${i + 1}</PartNumber><ETag>${t}</ETag></Part>`).join("\n")}
-  </CompleteMultipartUpload>`;
+    ${etags.map((t, i) => (
+        `<Part><PartNumber>${i + 1}</PartNumber><ETag>${t}</ETag></Part>`
+    )).join("\n")}
+    </CompleteMultipartUpload>`;
 
     const obj_url = obj_urls.video(context.env, video)
 

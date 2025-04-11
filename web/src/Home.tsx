@@ -40,7 +40,7 @@ const Home: FC = () => {
             const res = await fetch("/api/room")
             const body = await res.json()
 
-            setRooms(body.data as RoomListEntry[])
+            setRooms(body.result as RoomListEntry[])
         }
         loader()
     }, [])

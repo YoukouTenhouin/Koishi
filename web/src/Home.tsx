@@ -1,8 +1,12 @@
 import { FC, useEffect, useState } from 'react'
-import { AppShell, Card, Flex, Group, Image, Text } from '@mantine/core'
+import { AppShell, Card, Container, Flex, Group, Image, Loader, Text } from '@mantine/core'
 import { useNavigate } from 'react-router'
+import * as v from 'valibot'
 
-import SiteTitle from './components/SiteTitle'
+import SiteTitle from '@components/SiteTitle'
+import { APIError, FCWithAPI, useAPI } from '@lib/api'
+import { schemas } from '@lib/schemas'
+import ErrorPage from '@components/Error'
 
 interface RoomListEntry {
     id: number,
@@ -32,18 +36,27 @@ const Entry: FC<{ room: RoomListEntry }> = ({ room }) => {
     )
 }
 
+const RoomList = v.array(schemas.Room)
+
+const HomeView: FCWithAPI<typeof RoomList> = ({ loading, result, error }) => {
+    if (loading) {
+        return <Loader />
+    } else if (error) {
+        return <ErrorPage error={error} />
+    }
+
+    return (
+        <Flex
+            gap="md"
+            wrap="wrap"
+        >
+            {result!.map(r => <Entry key={r.id} room={r} />)}
+        </Flex>
+    )
+}
+
 const Home: FC = () => {
-    const [rooms, setRooms] = useState<RoomListEntry[]>([])
-
-    useEffect(() => {
-        const loader = async () => {
-            const res = await fetch("/api/room")
-            const body = await res.json()
-
-            setRooms(body.result as RoomListEntry[])
-        }
-        loader()
-    }, [])
+    const api_result = useAPI(RoomList, "/api/room")
 
     return (
         <AppShell
@@ -55,12 +68,7 @@ const Home: FC = () => {
                 </Group>
             </AppShell.Header>
             <AppShell.Main>
-                <Flex
-                    gap="md"
-                    wrap="wrap"
-                >
-                    {rooms.map(r => <Entry key={r.id} room={r} />)}
-                </Flex>
+                <HomeView {...api_result} />
             </AppShell.Main>
         </AppShell>
     )

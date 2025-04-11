@@ -12,18 +12,13 @@ import {
     useMatches
 } from '@mantine/core'
 
-import SiteTitle from './components/SiteTitle';
+import SiteTitle from '@components/SiteTitle'
+import { schemas, SchemaTypes } from '@lib/schemas'
+import { getMetadataURL, getVideoURL } from '@lib/objects';
+import { useAPI } from '@lib/api';
+import ErrorPage from '@components/Error';
 
-const cdn_base_url = import.meta.env.VITE_KOISHI_CDN_PREFIX;
-
-interface VideoInfo {
-    uuid: string,
-    title: string,
-    room: number
-    timestamp: number
-}
-
-const VODInfo: FC<{ info: VideoInfo | null }> = ({ info }) => {
+const VODInfo: FC<{ info: SchemaTypes.Video | null }> = ({ info }) => {
     const title = info?.title ?? "PLACEHOLDER"
     const datetime = new Date(info?.timestamp ?? 0)
 
@@ -245,8 +240,44 @@ function parseSCTag(item: Element, id: number): ChatSC {
     return { id, type: "sc", timestamp, username, content, price }
 }
 
+async function loadMessages(uuid: string) {
+    const metadata_url = getMetadataURL(uuid)
+    const res = await fetch(metadata_url)
+    if (res.status == 404) {
+        return []
+    }
+    const xml = await res.text()
+    const parser = new DOMParser()
+    const doc = parser.parseFromString(xml, "text/xml")
+    const root = doc.firstElementChild!
+
+    const entries: ChatEntry[] = []
+    const tags = root.children
+    for (let i = 0; i < tags.length; ++i) {
+        const item = tags.item(i)!
+        switch (item.tagName) {
+            case "d":
+                entries.push(parseDTag(item, i))
+                break
+            case "toast":
+                entries.push(parseToastTag(item, i))
+                break
+            case "gift":
+                entries.push(parseGiftTag(item, i))
+                break
+            case "sc":
+                entries.push(parseSCTag(item, i))
+                break
+            default:
+                break
+        }
+    }
+
+    return entries
+}
+
 const SideInfo: FC<{
-    info: VideoInfo | null
+    info: SchemaTypes.Video | null
     playbackPosition: number
 }> = ({ info, playbackPosition }) => {
     const [entries, setEntries] = useState<ChatEntry[]>([])
@@ -255,37 +286,7 @@ const SideInfo: FC<{
         const loader = async () => {
             if (!info) return
 
-            const metadata_url = new URL(`/metadata/${info.uuid}`, cdn_base_url)
-            const res = await fetch(metadata_url)
-            if (res.status == 404) {
-                return
-            }
-            const xml = await res.text()
-            const parser = new DOMParser()
-            const doc = parser.parseFromString(xml, "text/xml")
-            const root = doc.firstElementChild!
-
-            const entries: ChatEntry[] = []
-            const tags = root.children
-            for (let i = 0; i < tags.length; ++i) {
-                const item = tags.item(i)!
-                switch (item.tagName) {
-                    case "d":
-                        entries.push(parseDTag(item, i))
-                        break
-                    case "toast":
-                        entries.push(parseToastTag(item, i))
-                        break
-                    case "gift":
-                        entries.push(parseGiftTag(item, i))
-                        break
-                    case "sc":
-                        entries.push(parseSCTag(item, i))
-                        break
-                    default:
-                        break
-                }
-            }
+            const entries = await loadMessages(info.uuid)
             setEntries(entries)
         }
         loader()
@@ -299,29 +300,47 @@ const SideInfo: FC<{
     )
 }
 
-const Video: FC = () => {
-    const [video, setVideo] = useState<VideoInfo | null>(null)
+const VideoView: FC<{ video: SchemaTypes.Video | null }> = ({ video }) => {
     const [playbackPosition, setPlaybackPosition] = useState(0)
-
-    const params = useParams()
-    const video_id = params.video!
 
     const videoPlayerFlex = useMatches({
         base: 0,
         sm: 1
     })
 
-    useEffect(() => {
-        const loader = async () => {
-            const res = await fetch(`/api/video/${video_id}`)
-            const body = await res.json()
+    const source = video && getVideoURL(video.room, video.uuid)
 
-            setVideo(body.result)
-        }
-        loader()
-    }, [video_id])
+    return (
+        <Flex
+            flex={1}
+            direction={{ base: "column", sm: "row" }}>
+            {source && (
+                <video
+                    controls
+                    style={{
+                        flex: videoPlayerFlex,
+                        minWidth: 0,
+                        minHeight: 0,
+                        objectFit: "contain",
+                        backgroundColor: "black"
+                    }}
+                    onTimeUpdate={e => setPlaybackPosition(
+                        e.currentTarget.currentTime
+                    )}>
+                    <source src={source.toString()} />
+                </video>
+            )}
+            <SideInfo info={video} playbackPosition={playbackPosition} />
+        </Flex>
+    )
+}
 
-    const source = video && new URL(`/video/${video.room}/${video.uuid}`, cdn_base_url)
+const Video: FC = () => {
+    const params = useParams()
+    const video_id = params.video!
+
+    const { result: video, error } = useAPI(schemas.Video, `/api/video/${video_id}`)
+
 
     return (
         <AppShell
@@ -338,27 +357,7 @@ const Video: FC = () => {
                 </Group>
             </AppShell.Header>
             <AppShell.Main>
-                <Flex
-                    flex={1}
-                    direction={{ base: "column", sm: "row" }}>
-                    {source && (
-                        <video
-                            controls
-                            style={{
-                                flex: videoPlayerFlex,
-                                minWidth: 0,
-                                minHeight: 0,
-                                objectFit: "contain",
-                                backgroundColor: "black"
-                            }}
-                            onTimeUpdate={e => setPlaybackPosition(
-                                e.currentTarget.currentTime
-                            )}>
-                            <source src={source.toString()} />
-                        </video>
-                    )}
-                    <SideInfo info={video} playbackPosition={playbackPosition} />
-                </Flex>
+                {error === null ? <VideoView video={video} /> : <ErrorPage error={error} />}
             </AppShell.Main>
         </AppShell >
     )

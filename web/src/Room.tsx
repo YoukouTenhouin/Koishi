@@ -1,35 +1,40 @@
-import { FC, useEffect, useState } from 'react'
+import { FC, useEffect } from 'react'
 import { useDisclosure } from '@mantine/hooks'
-import { AppShell, Burger, Group, Stack, Card, Flex, Image, Text, Skeleton } from '@mantine/core'
+import {
+    AppShell,
+    Burger,
+    Card,
+    Flex,
+    Group,
+    Image,
+    Loader,
+    Skeleton,
+    Stack,
+    Text,
+} from '@mantine/core'
 import { useNavigate, useParams } from 'react-router'
+import * as v from 'valibot'
 
-import SiteTitle from './components/SiteTitle'
+import SiteTitle from '@components/SiteTitle'
+import { useAPI } from '@lib/api'
+import { schemas } from '@lib/schemas'
+import ErrorPage from '@components/Error'
+import { getCoverURL } from '@lib/objects'
 
-interface VideoListEntry {
-    uuid: string,
-    title: string,
-    cover: string | null
-    timestamp: number
-}
-
-interface RoomInfo {
-    id: number
-    short_id: number | null
-    username: string
-    image: string
-}
+const VideoListEntry = v.omit(schemas.Video, ["room"])
+const VideoList = v.array(VideoListEntry)
 
 function phImg(width: number, height: number, text: string) {
     return `https://placehold.co/${width}x${height}?text=${encodeURIComponent(text)}`
 }
 
-const cdn_base_url = import.meta.env.VITE_KOISHI_CDN_PREFIX;
-
 function coverUrl(cover: string | null) {
-    return cover && new URL(`/cover/${cover}`, cdn_base_url).href
+    return cover && getCoverURL(cover)
 }
 
-const VideoEntry: FC<{ video: VideoListEntry }> = ({ video }) => {
+const VideoEntry: FC<{
+    video: v.InferOutput<typeof VideoListEntry>
+}> = ({ video }) => {
     const { uuid, title, cover, timestamp } = video
 
     const date = new Date(timestamp)
@@ -60,27 +65,30 @@ const VideoEntry: FC<{ video: VideoListEntry }> = ({ video }) => {
     )
 }
 
+const VideoListView: FC<{ room_id: string }> = ({ room_id }) => {
+    const { loading, result, error } = useAPI(VideoList, `/api/room/${room_id}/video`)
+    if (loading) {
+        return <Loader />
+    } else if (error) {
+        return <ErrorPage error={error} />
+    }
+
+    return (
+        <Flex
+            gap="md"
+            wrap="wrap"
+        >
+            {result!.map(v => <VideoEntry key={v.uuid} video={v} />)}
+        </Flex>
+    )
+}
+
 const Room: FC = () => {
     const params = useParams()
     const room_id = params.room!
-    const [roomInfo, setRoomInfo] = useState<RoomInfo | null>(null)
-    const [videos, setVideos] = useState<VideoListEntry[]>([])
     const [asideOpened, { toggle }] = useDisclosure()
 
-    const loading = !!roomInfo
-
-    useEffect(() => {
-        const loader = async () => {
-            const room_info_res = await fetch(`/api/room/${room_id}`)
-            const room_info_body = await room_info_res.json()
-            setRoomInfo(room_info_body.result)
-
-            const video_res = await fetch(`/api/room/${room_id}/video`)
-            const video_body = await video_res.json()
-            setVideos(video_body.result)
-        }
-        loader()
-    }, [room_id])
+    const { loading, result: roomInfo, error } = useAPI(schemas.Room, `/api/room/${room_id}`)
 
     return (
         <AppShell
@@ -108,7 +116,7 @@ const Room: FC = () => {
                     p="lg">
                     <Skeleton
                         w="auto"
-                        visible={!loading}>
+                        visible={loading}>
                         <Image
                             w={192}
                             h={192}
@@ -116,10 +124,10 @@ const Room: FC = () => {
                             referrerPolicy="no-referrer"
                         />
                     </Skeleton>
-                    <Skeleton visible={!loading}>
+                    <Skeleton visible={loading}>
                         <Text ta="center" fw={700}>{roomInfo?.username ?? "LOADING"}</Text>
                     </Skeleton>
-                    <Skeleton visible={!loading}>
+                    <Skeleton visible={loading}>
                         <Text size="sm" c="dimmed" ta="center">
                             {roomInfo?.short_id ?? roomInfo?.id ?? "114514"}
                         </Text>
@@ -127,12 +135,7 @@ const Room: FC = () => {
                 </Stack>
             </AppShell.Aside>
             <AppShell.Main>
-                <Flex
-                    gap="md"
-                    wrap="wrap"
-                >
-                    {videos.map(v => <VideoEntry key={v.uuid} video={v} />)}
-                </Flex>
+                {error === null ? <VideoListView room_id={room_id} /> : <ErrorPage error={error} />}
             </AppShell.Main>
         </AppShell>
     )

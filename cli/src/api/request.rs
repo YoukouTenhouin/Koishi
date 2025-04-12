@@ -1,5 +1,8 @@
-use serde::{de::DeserializeOwned, Deserialize};
-use reqwest::{blocking::{self as req, RequestBuilder, Response}, Url};
+use reqwest::{
+    Url,
+    blocking::{self as req, RequestBuilder, Response},
+};
+use serde::{Deserialize, de::DeserializeOwned};
 
 use crate::global_options;
 
@@ -25,22 +28,17 @@ fn concat_api_url<P: AsRef<str>>(path: P) -> Url {
 
 pub(super) fn get<P: AsRef<str>>(path: P) -> RequestBuilder {
     let url = concat_api_url(path);
-    req::Client::new()
-        .get(url)
+    req::Client::new().get(url)
 }
 
 pub(super) fn post<P: AsRef<str>>(path: P) -> RequestBuilder {
     let url = concat_api_url(path);
-    req::Client::new()
-        .post(url)
-        .api_auth()
+    req::Client::new().post(url).api_auth()
 }
 
 pub(super) fn put<P: AsRef<str>>(path: P) -> RequestBuilder {
     let url = concat_api_url(path);
-    req::Client::new()
-        .put(url)
-        .api_auth()
+    req::Client::new().put(url).api_auth()
 }
 
 pub(super) trait APIRequestBuilder {
@@ -50,19 +48,17 @@ pub(super) trait APIRequestBuilder {
 
 impl APIRequestBuilder for RequestBuilder {
     fn api_auth(self) -> Self {
-	let token = global_options::AUTH_KEY.get()
-	    .expect("Authorization key must be initialized")
-	    .as_ref()
-	    .expect("Authorization key required");
+        let token = global_options::AUTH_KEY
+            .get()
+            .expect("Authorization key must be initialized")
+            .as_ref()
+            .expect("Authorization key required");
 
-	self.bearer_auth(token)
+        self.bearer_auth(token)
     }
 
     fn limit_offset(self, limit: u64, offset: u64) -> Self {
-	self.query(&[
-	    ("limit", limit.to_string()),
-	    ("offset", offset.to_string())
-	])
+        self.query(&[("limit", limit.to_string()), ("offset", offset.to_string())])
     }
 }
 
@@ -72,12 +68,10 @@ pub(super) trait APIResult {
 
 impl APIResult for Response {
     fn api_result<T: DeserializeOwned + 'static>(self) -> Result<T> {
-	let raw: APIRawResult<T> = self.json()?;
-	match raw {
-	    APIRawResult::Success(success) => {
-		Ok(success.result)
-	    }
-	    APIRawResult::Error(err) => Err(err.into()),
-	}
+        let raw: APIRawResult<T> = self.json()?;
+        match raw {
+            APIRawResult::Success(success) => Ok(success.result),
+            APIRawResult::Error(err) => Err(err.into()),
+        }
     }
 }

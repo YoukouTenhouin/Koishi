@@ -33,7 +33,7 @@ struct XMLRoomMetadata {
 
 #[derive(Deserialize)]
 struct XMLRoot {
-    metadata: XMLRoomMetadata
+    metadata: XMLRoomMetadata,
 }
 
 fn read_xml(path: &Path) -> XMLRoomMetadata {
@@ -42,32 +42,35 @@ fn read_xml(path: &Path) -> XMLRoomMetadata {
     file.read_to_string(&mut xml_data).expect("XML read failed");
 
     match from_str::<XMLRoot>(&xml_data) {
-        Ok(root) => {
-	    root.metadata
-        }
+        Ok(root) => root.metadata,
         Err(e) => {
             eprintln!("Error deserializing XML: {}", e);
-	    std::process::exit(-1)
+            std::process::exit(-1)
         }
     }
 }
 
 pub(super) fn main(args: Args) {
-    let uuid = args.uuid.unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
+    let uuid = args
+        .uuid
+        .unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
     let metadata = read_xml(&args.path);
-    let ts = metadata.live_start_time.parse::<DateTime<Utc>>()
-	.expect("Failed to parse live_start_time");
+    let ts = metadata
+        .live_start_time
+        .parse::<DateTime<Utc>>()
+        .expect("Failed to parse live_start_time");
 
     let restricted_hash = args.password.map(|v| restricted_hash(&uuid, &v).unwrap());
 
     api::video::create(
-	&uuid,
-	metadata.room_title,
-	args.cover,
-	ts.timestamp_millis(),
-	metadata.room_id,
-	restricted_hash
-    ).unwrap();
+        &uuid,
+        metadata.room_title,
+        args.cover,
+        ts.timestamp_millis(),
+        metadata.room_id,
+        restricted_hash,
+    )
+    .unwrap();
 
     println!("Created video {uuid} from XML");
 }

@@ -1,5 +1,8 @@
 use clap::Parser;
-use tabled::{Table, settings::{Style, Remove, location::ByColumnName}};
+use tabled::{
+    Table,
+    settings::{Remove, Style, location::ByColumnName},
+};
 
 use crate::api;
 
@@ -16,7 +19,7 @@ pub(super) fn main(args: Args) {
     let mut table = Table::new(&[room]);
     table.with(Style::modern());
     if !args.image {
-	table.with(Remove::column(ByColumnName::new("Image")));
+        table.with(Remove::column(ByColumnName::new("Image")));
     }
     print!("{}", table)
 }

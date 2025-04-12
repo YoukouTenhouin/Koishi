@@ -1,8 +1,8 @@
 use clap::Parser;
-use serde::Deserialize;
-use serde_json::Value;
 use reqwest::Url;
 use reqwest::blocking as req;
+use serde::Deserialize;
+use serde_json::Value;
 
 use crate::api;
 
@@ -42,10 +42,10 @@ fn get_room_info(room_id: u64) -> Option<ResRoomInfo> {
     let url = Url::parse_with_params(ROOM_INFO_URL, &[("room_id", room_id.to_string())]).unwrap();
     let res: ResBody = req::get(url).unwrap().json().unwrap();
     if res.code == 1 {
-	None
+        None
     } else {
-	let info: ResRoomInfo = serde_json::value::from_value(res.data).unwrap();
-	Some(info)
+        let info: ResRoomInfo = serde_json::value::from_value(res.data).unwrap();
+        Some(info)
     }
 }
 
@@ -59,18 +59,18 @@ fn get_user_info(uid: u64) -> ResUserInfo {
 fn fetch_info(room_id: u64) -> Option<api::room::Room> {
     let room_info = get_room_info(room_id)?;
     let short_id = if room_info.short_id == 0 {
-	None
+        None
     } else {
-	Some(room_info.short_id)
+        Some(room_info.short_id)
     };
 
     let user_info = get_user_info(room_info.uid);
 
     let ret = api::room::Room {
-	id: room_info.room_id,
-	short_id,
-	username: user_info.card.name,
-	image: user_info.card.face,
+        id: room_info.room_id,
+        short_id,
+        username: user_info.card.name,
+        image: user_info.card.face,
     };
     Some(ret)
 }
@@ -79,13 +79,13 @@ pub(super) fn main(args: Args) {
     println!("Fetching info for room {}", args.room_id);
 
     let Some(info) = fetch_info(args.room_id) else {
-	println!("Room {} not found", args.room_id);
-	return;
+        println!("Room {} not found", args.room_id);
+        return;
     };
 
     println!("\tID:\t\t{}", info.id);
     if let Some(short_id) = info.short_id {
-	println!("\tShort ID:\t{}", short_id);
+        println!("\tShort ID:\t{}", short_id);
     }
     println!("\tName:\t\t{}", info.username);
     println!("\tImage:\t\t{}", info.image);

@@ -1,10 +1,10 @@
-import { FC, useEffect, useState } from 'react'
-import { AppShell, Card, Container, Flex, Group, Image, Loader, Text } from '@mantine/core'
+import { FC } from 'react'
+import { AppShell, Card, Flex, Group, Image, Loader, Text } from '@mantine/core'
 import { useNavigate } from 'react-router'
 import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
-import { APIError, FCWithAPI, useAPI } from '@lib/api'
+import { FCWithAPI, useAPI } from '@lib/api'
 import { schemas } from '@lib/schemas'
 import ErrorPage from '@components/Error'
 

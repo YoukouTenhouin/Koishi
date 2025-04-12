@@ -1,4 +1,3 @@
-import { restricted_hash } from "./cryptography";
 import { SchemaTypes } from "./schemas";
 
 const CDN_BASE_URL = import.meta.env.VITE_KOISHI_CDN_PREFIX;

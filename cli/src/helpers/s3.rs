@@ -138,7 +138,6 @@ impl UploadTaskBuilder {
 
     fn send(self) -> Result<Response, S3UploaderError> {
         let res = self.rb.send()?;
-        println!("S3 Upload result: {:#?}", res);
         if !res.status().is_success() {
             let status = res.status().as_u16();
             let xml = res.text()?;

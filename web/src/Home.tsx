@@ -21,17 +21,15 @@ const Entry: FC<{ room: RoomListEntry }> = ({ room }) => {
     const navigate = useNavigate()
 
     return (
-        <Card shadow="sm" padding="lg" withBorder onClick={() => navigate(`/room/${id}`)}>
+        <Card shadow="sm" padding="md" withBorder onClick={() => navigate(`/room/${id}`)}>
             <Card.Section>
                 <Group>
                     <Image height={128} src={image} referrerPolicy="no-referrer" />
                 </Group>
             </Card.Section>
 
-            <Card.Section p="md">
-                <Text fw={700}>{username}</Text>
-                <Text>{`${id}${short_id ? ", " + short_id : ""}`}</Text>
-            </Card.Section>
+            <Text fw={700}>{username}</Text>
+            <Text>{`${id}${short_id ? ", " + short_id : ""}`}</Text>
         </Card >
     )
 }

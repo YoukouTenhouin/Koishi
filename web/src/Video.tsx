@@ -4,9 +4,11 @@ import {
     AppShell,
     Button,
     Card,
+    Collapse,
     Container,
     Flex,
     Group,
+    Paper,
     PasswordInput,
     ScrollArea,
     Skeleton,
@@ -15,6 +17,7 @@ import {
     Title,
     useMatches
 } from '@mantine/core'
+import { useDisclosure } from '@mantine/hooks';
 import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
@@ -23,25 +26,35 @@ import { schemas, SchemaTypes } from '@lib/schemas'
 import { getMetadataURL, getRestrictedVideoURL, getUnrestrictedVideoURL } from '@lib/objects';
 import ErrorPage from '@components/Error';
 import { restricted_hash } from '@lib/cryptography';
+import { date_stamp } from '@lib/chrono';
+import Cover from '@components/Cover';
 
 const VODInfo: FC<{ info: SchemaTypes.Video | null }> = ({ info }) => {
     const title = info?.title ?? "PLACEHOLDER"
     const datetime = new Date(info?.timestamp ?? 0)
 
+    const [opened, { toggle }] = useDisclosure(true)
+
     return (
-        <Card
-            shadow="sm"
-            padding="xl"
-        >
-            <Stack>
+        <Paper withBorder>
+            <Container py="xs" style={{
+                cursor: "pointer"
+            }} onClick={toggle}>
                 <Skeleton visible={info === null}>
-                    <Text fw={700}>{title}</Text>
+                    <Title order={4}>{title}</Title>
                 </Skeleton>
+            </Container>
+
+            <Collapse in={opened}>
                 <Skeleton visible={info === null}>
-                    <Text size="sm" c="dimmed">{datetime.toDateString()}</Text>
+                    <Cover cover={info?.cover ?? null} width={320} height={160} />
                 </Skeleton>
-            </Stack>
-        </Card>
+
+                <Stack p="sm">
+                    <Text size="sm" c="dimmed">{date_stamp(datetime)}</Text>
+                </Stack>
+            </Collapse>
+        </Paper >
     )
 }
 
@@ -206,7 +219,7 @@ const ChatDisplay: FC<{
 
     return (
         <ScrollArea style={{ flex: "1 1 0", overflowY: "auto" }} viewportRef={viewport}>
-            <Flex direction="column" gap="md">
+            <Flex direction="column" gap="md" p="md">
                 {display_messages.map(msg => (
                     <ChatEntry key={msg.id} entry={msg} />
                 ))}
@@ -299,7 +312,7 @@ const SideInfo: FC<{
     }, [info])
 
     return (
-        <Stack flex={{ base: 1, sm: 0 }} miw={{ sm: "300px" }} p="xl">
+        <Stack flex={{ base: 1, sm: 0 }} miw={{ sm: "300px" }}>
             <VODInfo info={info} />
             <ChatDisplay playbackPosition={playbackPosition} entries={entries} />
         </Stack>

@@ -16,10 +16,11 @@ import { useNavigate, useParams } from 'react-router'
 import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
+import Cover from '@components/Cover'
 import { useAPI } from '@lib/api'
 import { schemas } from '@lib/schemas'
 import ErrorPage from '@components/Error'
-import { getCoverURL } from '@lib/objects'
+import { date_stamp } from '@lib/chrono'
 
 const VideoListEntry = v.omit(schemas.Video, ["room"])
 const VideoList = v.array(VideoListEntry)
@@ -28,14 +29,10 @@ function phImg(width: number, height: number, text: string) {
     return `https://placehold.co/${width}x${height}?text=${encodeURIComponent(text)}`
 }
 
-function coverUrl(cover: string | null) {
-    return cover && getCoverURL(cover)
-}
-
 const VideoEntry: FC<{
     video: v.InferOutput<typeof VideoListEntry>
 }> = ({ video }) => {
-    const { uuid, title, cover, timestamp } = video
+    const { uuid, title, timestamp } = video
 
     const date = new Date(timestamp)
     const navigate = useNavigate()
@@ -47,20 +44,11 @@ const VideoEntry: FC<{
             withBorder
             onClick={() => navigate(`/video/${uuid}`)}>
             <Card.Section>
-                <Image
-                    width={320}
-                    height={180}
-                    src={coverUrl(cover) ?? phImg(320, 180, "NO COVER")}
-                    referrerPolicy="no-referrer" />
+                <Cover cover={video.cover} width={320} height={180} />
             </Card.Section>
 
-            <Card.Section>
-                <Text fw={700}>{title}</Text>
-            </Card.Section>
-
-            <Card.Section>
-                <Text>直播时间: {date.toDateString()}</Text>
-            </Card.Section>
+            <Text fw={700}>{title}</Text>
+            <Text>直播时间: {date_stamp(date)}</Text>
         </Card >
     )
 }

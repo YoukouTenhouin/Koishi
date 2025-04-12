@@ -27,7 +27,9 @@ struct VideoCreateInfo {
     title: String,
     cover: Option<String>,
     timestamp: i64,
-    room: u64
+    room: u64,
+    restricted: u64,
+    restricted_hash: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -43,6 +45,18 @@ pub(crate) struct VideoUploadStartResponse {
     pub video: Video
 }
 
+#[derive(Deserialize)]
+pub(crate) struct VideoSetRestrictedResponse {
+    pub copy_source: String,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct RestrictedCopyStartResponse {
+    pub length: u64,
+    pub upload_id: String,
+    pub urls: Vec<String>,
+}
+
 #[derive(Serialize)]
 struct VideoUpdateInfo {
     #[serde(skip_serializing_if="Option::is_none")]
@@ -56,13 +70,37 @@ struct VideoUpdateInfo {
 #[derive(Serialize)]
 struct ReqUploadStart {
     size: u64,
-    part_size: u64
+    part_size: u64,
+    restricted_hash: Option<String>,
 }
 
 #[derive(Serialize)]
 struct ReqUploadFinish {
     upload_id: String,
     etags: Vec<String>,
+    restricted_hash: Option<String>,
+}
+
+#[derive(Serialize)]
+struct ReqSetRestricted {
+    restricted: u64,
+    hash: String
+}
+
+#[derive(Serialize)]
+#[serde(tag="command", rename_all="snake_case")]
+enum ReqPostRestricted {
+    CopyStart {
+	copy_source: String,
+	hash: Option<String>,
+	part_size: u64,
+    },
+    CopyFinish {
+	copy_source: String,
+	hash: Option<String>,
+	etags: Vec<String>,
+	upload_id: String,
+    }
 }
 
 pub(crate) fn create(
@@ -70,14 +108,19 @@ pub(crate) fn create(
     title: String,
     cover: Option<String>,
     timestamp: i64,
-    room: u64
+    room: u64,
+    restricted_hash: Option<String>
 ) -> Result<()> {
     if global_options::DRY.get().unwrap().clone() {
 	println!("skipping request due to being dry run");
 	return Ok(())
     }
 
-    let video = VideoCreateInfo { title, cover, room, timestamp };
+    let restricted = restricted_hash.as_ref().and(Some(1)).unwrap_or(0);
+
+    let video = VideoCreateInfo {
+	title, cover, room, timestamp,restricted, restricted_hash
+    };
 
     request::post(format!("video/{uuid}"))
         .json(&video)
@@ -134,11 +177,13 @@ pub(crate) fn upload_metadata<P: AsRef<Path>>(uuid: &str, path: P)
     Ok(())
 }
 
-pub(crate) fn upload_start(uuid: &str, file_size: u64, part_size: u64)
-			   -> Result<VideoUploadStartResponse> {
+pub(crate) fn upload_start(
+    uuid: &str, file_size: u64, part_size: u64, hash: Option<String>
+) -> Result<VideoUploadStartResponse> {
     let req_body = ReqUploadStart {
 	size: file_size,
 	part_size,
+	restricted_hash: hash,
     };
     request::post(format!("video/{uuid}/upload_start"))
         .json(&req_body)
@@ -146,10 +191,55 @@ pub(crate) fn upload_start(uuid: &str, file_size: u64, part_size: u64)
 	.api_result()
 }
 
-pub(crate) fn upload_finish(uuid: &str, upload_id: String, etags: Vec<String>) -> Result<()> {
-    let req_body = ReqUploadFinish{ upload_id, etags };
+pub(crate) fn upload_finish(
+    uuid: &str, upload_id: String, etags: Vec<String>, hash: Option<String>
+) -> Result<()> {
+    let req_body = ReqUploadFinish{ upload_id, etags, restricted_hash: hash };
 
     request::post(format!("video/{uuid}/upload_finish"))
+        .json(&req_body)
+        .send()?
+	.api_result()
+}
+
+pub(crate) fn set_restricted(uuid:&str, restricted: bool, hash: &str)
+			     -> Result<Option<VideoSetRestrictedResponse>> {
+    let req_body = ReqSetRestricted{
+	restricted: restricted as u64,
+	hash: hash.to_string()
+    };
+
+    request::put(format!("video/{uuid}/restricted"))
+	.json(&req_body)
+	.send()?
+	.api_result()
+}
+
+pub(crate) fn restricted_copy_start(
+    uuid: &str,
+    copy_source: String,
+    hash: Option<String>,
+    part_size: u64
+) -> Result<RestrictedCopyStartResponse> {
+    let req_body = ReqPostRestricted::CopyStart {
+	copy_source, hash, part_size
+    };
+
+    request::post(format!("video/{uuid}/restricted"))
+        .json(&req_body)
+        .send()?
+	.api_result()
+}
+
+pub(crate) fn restricted_copy_finish(
+    uuid: &str, copy_source: String, hash: Option<String>,
+    upload_id: String, etags: Vec<String>
+) -> Result<()> {
+    let req_body = ReqPostRestricted::CopyFinish {
+	copy_source, hash, etags, upload_id
+    };
+
+    request::post(format!("video/{uuid}/restricted"))
         .json(&req_body)
         .send()?
 	.api_result()

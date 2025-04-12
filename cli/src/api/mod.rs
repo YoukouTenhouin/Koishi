@@ -42,6 +42,7 @@ impl std::error::Error for ServerError {}
 pub(crate) enum ServerErrorType {
     BadRequest,
     Unauthorized,
+    Forbidden,
     NotFound,
     MethodNotAllowed,
     Conflict,
@@ -60,6 +61,7 @@ impl std::fmt::Display for ServerErrorType {
 	match self {
 	    Self::BadRequest => write!(f, "BadRequest"),
 	    Self::Unauthorized => write!(f, "Unauthorized"),
+	    Self::Forbidden => write!(f, "Forbidden"),
 	    Self::NotFound => write!(f, "NotFound"),
 	    Self::MethodNotAllowed => write!(f, "MethodNotAllowed"),
 	    Self::Conflict => write!(f, "Conflict"),

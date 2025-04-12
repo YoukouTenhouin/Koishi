@@ -10,10 +10,10 @@ export const onRequestGet: PagesFunction<Env> = async (context) => {
     const offset = parseInt(q_params.get("offset") ?? "0", 10)
 
     const ps = context.env.DB.prepare(
-        "SELECT LOWER(HEX(uuid)) as uuid, title, cover, timestamp FROM video "
+        "SELECT LOWER(HEX(uuid)) as uuid, title, cover, timestamp, restricted FROM video "
         + "WHERE room = ? ORDER BY timestamp DESC LIMIT ? OFFSET ?"
     ).bind(room, limit, offset)
-    const ret = await run_query<Omit<Video, "room">>(ps)
+    const ret = await run_query<Omit<Video, "room" | "restricted_hash">>(ps)
     if (!ret.success) {
         return res.db_transaction_error(ret.error)
     }

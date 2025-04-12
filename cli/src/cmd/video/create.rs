@@ -3,6 +3,7 @@ use clap::Parser;
 use uuid::Uuid;
 
 use crate::api;
+use crate::helpers::cryptography::restricted_hash;
 
 #[derive(Parser)]
 pub(super) struct Args {
@@ -19,6 +20,9 @@ pub(super) struct Args {
     cover: Option<String>,
 
     #[arg(short, long)]
+    password: Option<String>,
+
+    #[arg(short, long)]
     room: u64,
 }
 
@@ -32,12 +36,15 @@ pub(super) fn main(args: Args) {
 	std::process::exit(-1);
     }
 
+    let restricted_hash = args.password.map(|v| restricted_hash(&uuid, &v).unwrap());
+
      api::video::create(
-	&uuid,
-	args.title,
-	args.cover,
-	ts.unwrap().timestamp_millis(),
-	args.room
+	 &uuid,
+	 args.title,
+	 args.cover,
+	 ts.unwrap().timestamp_millis(),
+	 args.room,
+	 restricted_hash
     ).unwrap();
 
     println!("Created video {uuid}");

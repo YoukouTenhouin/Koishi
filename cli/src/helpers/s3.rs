@@ -1,8 +1,9 @@
 use reqwest::{
-    blocking::{Body, Client, RequestBuilder},
+    blocking::{Body, Client, RequestBuilder, Response},
     IntoUrl,
     Result as ReqResult,
 };
+use serde::Deserialize;
 use std::{
     fmt::Display, fs::File, io::{self, BufReader, Read}, path::Path, time::Duration
 };
@@ -104,8 +105,19 @@ impl UploadTaskBuilder {
 	let rb = f(self.rb);
 	Self{ rb }
     }
+
     pub fn mimetype<S: AsRef<str>>(self, value: S) -> Self {
 	self.map_inner(|rb| rb.header("Content-Type", value.as_ref()))
+    }
+
+    pub fn copy<S: AsRef<str>>(self, source: S) -> Self {
+	self.map_inner(|rb| rb.header("x-amz-copy-source", source.as_ref()))
+    }
+
+    pub fn copy_range_from_to(self, from: u64, to: u64) -> Self {
+	self.map_inner(|rb| rb.header(
+	    "x-amz-copy-source-range", format!("bytes={}-{}",from, to)
+	))
     }
 
     pub fn body<B: Into<Body>>(self, body: B) -> Self {
@@ -125,17 +137,41 @@ impl UploadTaskBuilder {
 	Ok(self.from_reader_sized(buf_reader, f_size as u64))
     }
 
+    fn send(self) -> Result<Response, S3UploaderError> {
+	let res = self.rb.send()?;
+	println!("S3 Upload result: {:#?}", res);
+	if !res.status().is_success() {
+	    let status = res.status().as_u16();
+	    let xml = res.text()?;
+	    Err(S3Error{ status, xml }.into())
+	} else {
+	    Ok(res)
+	}
+    }
+
     pub fn upload(self) -> Result<UploadResult, S3UploaderError> {
-	let res = self.rb
-	    .send()?;
-	let etag = res.headers()
+	let res = self.send()?;
+	let etag_header = res.headers()
 	    .get("ETag")
 	    .and_then(|v| v.to_str().ok())
 	    .map(|v| v.to_string());
-	Ok(UploadResult{ etag })
+	if let Some(etag) = etag_header {
+	    Ok(UploadResult{ etag })
+	} else {
+	    let xml = res.text()?;
+	    let result: CopyPartResult = quick_xml::de::from_str(&xml)
+		.expect("Failed to parse XML");
+	    Ok(UploadResult{ etag: result.etag })
+	}
     }
 }
 
 pub(crate) struct UploadResult {
-    pub etag: Option<String>,
+    pub etag: String,
+}
+
+#[derive(Deserialize)]
+struct CopyPartResult {
+    #[serde(rename="ETag")]
+    etag: String,
 }

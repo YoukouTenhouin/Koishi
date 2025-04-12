@@ -14,10 +14,22 @@ export interface Room {
     image: string
 }
 
-export interface Video {
+interface VideoCommon {
     uuid: string,
     title: string,
     cover: string | null
     room: number
     timestamp: number
 }
+
+interface UnrestrictedVideo extends VideoCommon {
+    restricted: 0
+    restricted_hash: null
+}
+
+interface RestrictedVideo extends VideoCommon {
+    restricted: 1
+    restricted_hash: string
+}
+
+export type Video = UnrestrictedVideo | RestrictedVideo

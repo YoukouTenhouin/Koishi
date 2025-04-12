@@ -10,6 +10,7 @@ use std::{
 use uuid::Uuid;
 
 use crate::api;
+use crate::helpers::cryptography::restricted_hash;
 
 #[derive(Parser)]
 pub(super) struct Args {
@@ -17,6 +18,8 @@ pub(super) struct Args {
     uuid: Option<String>,
     #[arg(short, long)]
     cover: Option<String>,
+    #[arg(short, long)]
+    password: Option<String>,
 
     path: PathBuf,
 }
@@ -55,12 +58,15 @@ pub(super) fn main(args: Args) {
     let ts = metadata.live_start_time.parse::<DateTime<Utc>>()
 	.expect("Failed to parse live_start_time");
 
+    let restricted_hash = args.password.map(|v| restricted_hash(&uuid, &v).unwrap());
+
     api::video::create(
 	&uuid,
 	metadata.room_title,
 	args.cover,
 	ts.timestamp_millis(),
-	metadata.room_id
+	metadata.room_id,
+	restricted_hash
     ).unwrap();
 
     println!("Created video {uuid} from XML");

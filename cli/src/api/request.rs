@@ -13,8 +13,8 @@ pub(crate) struct APISuccess<T> {
 #[derive(Deserialize)]
 #[serde(untagged)]
 enum APIRawResult<T> {
-    Success(APISuccess<T>),
     Error(ServerError),
+    Success(APISuccess<T>),
 }
 
 fn concat_api_url<P: AsRef<str>>(path: P) -> Url {

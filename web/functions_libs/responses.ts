@@ -11,6 +11,7 @@ export namespace res {
 
     export const bad_request = error_wrapper(400, "bad_request")
     export const unauthorized = error_wrapper(401, "unauthorized")
+    export const forbidden = error_wrapper(403, "forbidden")
     export const not_found = error_wrapper(404, "not_found")
     export const method_not_allowed = error_wrapper(405, "method_not_allowed")
     export const conflict = error_wrapper(409, "conflict")

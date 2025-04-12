@@ -5,11 +5,41 @@ import { run_query, video_by_uuid } from '@flib/queries'
 import { get_req_body } from '@flib/requests'
 import { res } from '@flib/responses'
 
-async function insert(uuid: string, v: Omit<Video, "uuid">, db: D1Database) {
+const ReqInsertCommon = v.object({
+    title: v.pipe(v.string(), v.nonEmpty()),
+    cover: v.nullable(v.string()),
+    room: v.number(),
+    timestamp: v.number(),
+})
+
+const ReqInsertUnrestricted = v.object({
+    ...ReqInsertCommon.entries,
+    restricted: v.optional(v.literal(0)),
+    restricted_hash: v.optional(v.null()),
+})
+const ReqInsertRestricted = v.object({
+    ...ReqInsertCommon.entries,
+    restricted: v.literal(1),
+    restricted_hash: v.string(),
+})
+const ReqInsert = v.variant('restricted', [
+    ReqInsertUnrestricted,
+    ReqInsertRestricted
+])
+
+const ReqUpdate = v.partial(v.object({
+    title: v.string(),
+    cover: v.string(),
+    timestamp: v.number(),
+}))
+
+async function insert(uuid: string, v: v.InferOutput<typeof ReqInsert>, db: D1Database) {
     const ps = db.prepare(
-        "INSERT OR IGNORE INTO video (uuid, title, cover, room, timestamp) "
-        + "VALUES (UNHEX(?), ?, ?, ?, ?)"
-    ).bind(uuid, v.title, v.cover, v.room, v.timestamp)
+        "INSERT OR IGNORE INTO video "
+        + "(uuid, title, cover, room, timestamp, restricted, restricted_hash) "
+        + "VALUES (UNHEX(?), ?, ?, ?, ?, ?, ?)"
+    ).bind(uuid, v.title, v.cover, v.room, v.timestamp,
+        v.restricted ?? 0, v.restricted_hash ?? null)
     const ret = await run_query(ps)
     if (!ret.success) {
         return res.db_transaction_error(ret.error)
@@ -31,7 +61,7 @@ async function fetch(id: string, db: D1Database) {
     }
 }
 
-async function update(id: string, d: Partial<Video>, db: D1Database) {
+async function update(id: string, d: v.InferOutput<typeof ReqUpdate>, db: D1Database) {
     const { success: fetch_success, video, error: fetch_error } = await video_by_uuid(db, id)
     if (fetch_success) {
         if (video === null) {
@@ -58,15 +88,8 @@ async function update(id: string, d: Partial<Video>, db: D1Database) {
     return res.ok()
 }
 
-const ReqBody = v.object({
-    title: v.pipe(v.string(), v.nonEmpty()),
-    cover: v.nullable(v.string()),
-    room: v.number(),
-    timestamp: v.number()
-})
-
 async function post(uuid: string, db: D1Database, request: Body) {
-    const { success, output } = await get_req_body(request, ReqBody)
+    const { success, output } = await get_req_body(request, ReqInsert)
     if (!success) {
         return res.unprocessable_entity()
     }
@@ -78,7 +101,7 @@ async function get(uuid: string, db: D1Database) {
 }
 
 async function put(uuid: string, db: D1Database, request: Body) {
-    const { success, output } = await get_req_body(request, v.partial(ReqBody))
+    const { success, output } = await get_req_body(request, ReqUpdate)
     if (!success) {
         return res.unprocessable_entity()
     }

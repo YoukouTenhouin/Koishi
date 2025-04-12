@@ -19,12 +19,35 @@ export async function run_query<T>(stmt: D1PreparedStatement): Promise<
 
 export async function video_by_uuid(db: D1Database, uuid: string): Promise<{
     success: boolean
+    video: Omit<Video, "restricted_hash"> | null
+    error?: string
+}> {
+    const ps = db.prepare(
+        "SELECT "
+        + "LOWER(HEX(uuid)) as uuid, title, cover, room, timestamp, restricted "
+        + "FROM video WHERE uuid = UNHEX(?)"
+    ).bind(uuid)
+
+    const ret = await run_query<Video>(ps)
+    if (!ret.success) {
+        return { success: false, video: null, error: ret.error }
+    } else if (!ret.results.length) {
+        return { success: true, video: null }
+    } else {
+        return { success: true, video: ret.results[0] }
+    }
+}
+
+export async function video_by_uuid_with_hash(db: D1Database, uuid: string): Promise<{
+    success: boolean
     video: Video | null
     error?: string
 }> {
     const ps = db.prepare(
-        "SELECT LOWER(HEX(uuid)) as uuid, title, cover, room, timestamp FROM video "
-        + "WHERE uuid = UNHEX(?)"
+        "SELECT "
+        + "LOWER(HEX(uuid)) as uuid, title, cover, room, timestamp, "
+        + "restricted, restricted_hash "
+        + "FROM video WHERE uuid = UNHEX(?)"
     ).bind(uuid)
 
     const ret = await run_query<Video>(ps)

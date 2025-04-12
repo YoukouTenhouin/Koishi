@@ -5,17 +5,19 @@ use std::{
 };
 use tabled::{settings::{location::ByColumnName, Remove, Style}, Table};
 
-use crate::api;
+use crate::{api, helpers::cryptography::restricted_hash};
 use crate::helpers::s3;
 
 #[derive(Parser)]
 pub(super) struct Args {
-    #[arg(short, long)]
+    #[arg(short='P', long)]
     progress: bool,
     #[arg(short='s', long, default_value_t=100_000_000)]
     part_size: u64,
     #[arg(short, long, default_value_t=10)]
     retry_part: u64,
+    #[arg(short, long)]
+    password: Option<String>,
 
     uuid: String,
     path: PathBuf,
@@ -130,7 +132,7 @@ fn do_upload_part(
 	pb.finish_part();
     }
 
-    Ok(res.etag.unwrap_or_else(|| "".to_string()))
+    Ok(res.etag)
 }
 
 fn upload_part(
@@ -154,14 +156,13 @@ fn upload_part(
 
 
 fn do_upload(
-    uuid: &str, path: &Path, part_size: u64, progress: bool, retry: u64
+    uuid: &str, path: &Path, part_size: u64, progress: bool, retry: u64, hash: Option<String>
 ) -> Result<(), Box<dyn std::error::Error>> {
     let f = File::open(path)?;
     let f_size = f.metadata()?.len();
 
-
     std::println!("Initiating multi-part upload");
-    let upload_start = api::video::upload_start(uuid, f_size, part_size)?;
+    let upload_start = api::video::upload_start(uuid, f_size, part_size, hash.clone())?;
     print_video_info(&upload_start.video);
 
     let parts = upload_start.urls.len() as u64;
@@ -187,7 +188,7 @@ fn do_upload(
 	etags.push(etag);
     }
 
-    api::video::upload_finish(uuid, upload_start.upload_id, etags)?;
+    api::video::upload_finish(uuid, upload_start.upload_id, etags, hash)?;
     pb.map(|v| v.finish());
 
     Ok(())
@@ -196,8 +197,16 @@ fn do_upload(
 pub(crate) fn main(args: Args) {
     std::println!("Uploading video file {path}", path=args.path.display());
 
+    let hash = args.password.map(|v| restricted_hash(&args.uuid, &v).unwrap());
+
     do_upload(
-	&args.uuid, &args.path, args.part_size, args.progress, args.retry_part)
+	&args.uuid,
+	&args.path,
+	args.part_size,
+	args.progress,
+	args.retry_part,
+	hash
+    )
     .unwrap();
    println!("Upload finished")
 }

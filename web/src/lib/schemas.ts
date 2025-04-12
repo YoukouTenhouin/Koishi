@@ -14,6 +14,7 @@ export namespace schemas {
         cover: v.nullable(v.string()),
         room: v.number(),
         timestamp: v.number(),
+        restricted: v.number(),
     })
 }
 

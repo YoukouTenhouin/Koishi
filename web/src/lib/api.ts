@@ -45,7 +45,7 @@ export async function parseResponse<
         throw new APIError(res.status, output.error, output.message, output.details)
     }
 
-    return output.result
+    return output.result!
 }
 
 export async function requestAPI<

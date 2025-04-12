@@ -14,5 +14,8 @@ CREATE TABLE IF NOT EXISTS video (
        cover TEXT,
        room INTEGER NOT NULL,
        timestamp INTEGER NOT NULL,
+       len INTEGER,
+       restricted INTEGER NOT NULL DEFAULT 0,
+       restricted_hash TEXT,
        FOREIGN KEY (room) REFERENCES room(id)
 );

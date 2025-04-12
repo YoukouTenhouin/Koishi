@@ -23,6 +23,7 @@ pub(crate) struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     GenId,
+    RestrictedHash(cmd::restricted_hash::Args),
     Room(cmd::room::Args),
     Video(cmd::video::Args),
 }
@@ -47,6 +48,7 @@ fn main() {
     match cli.command {
 	Some(command) => match command {
 	    Commands::GenId => cmd::gen_id::main(),
+	    Commands::RestrictedHash(args) => cmd::restricted_hash::main(args),
 	    Commands::Room(args) => cmd::room::main(args),
 	    Commands::Video(args) => cmd::video::main(args),
 	}

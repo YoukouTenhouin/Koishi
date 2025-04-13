@@ -18,10 +18,11 @@ import {
     Stack,
     Table,
     Text,
+    TextInput,
     Title
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { ActivityLogIcon } from '@radix-ui/react-icons'
+import { ActivityLogIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
@@ -386,17 +387,47 @@ const ChatDrawerContext = createContext({
     onClose: () => { }
 })
 
+function filter_by_search(messages: ChatMessage[], query: string) {
+    const queries = query.split(" ")
+    let ret = messages
+    for (let q of queries) {
+        if (q.startsWith("uid:")) {
+            const uid = parseInt(query.replace("uid:", ""))
+            ret = ret.filter(e => e.uid == uid)
+        } else if (q.startsWith("uname:")) {
+            const uname = query.replace("uname:", "")
+            if (!uname) {
+                // wait for more input
+                return []
+            }
+            ret = ret.filter(e => e.username.startsWith(uname))
+        } else {
+            ret = ret.filter(e => e.content.includes(query))
+        }
+    }
+    return ret
+}
+
 const ChatDrawer: FC<{
     entries: ChatEntry[],
     onSeek?: (pos: number) => void
 }> = ({ entries, onSeek }) => {
-    const messages = useMemo(() => entries.filter(e => e.type == "message"), [entries])
+    const [searchQuery, setSearchQuery] = useState("")
+    const messages = useMemo(() => {
+        const ret = entries
+            .filter(e => e.type == "message")
+        return filter_by_search(ret, searchQuery.trim())
+    }, [entries, searchQuery])
 
     const { opened, onClose } = useContext(ChatDrawerContext)
 
     return (
         <Drawer position="right" onClose={onClose} opened={opened}>
             <Stack h="calc(100dvh - 60px)">
+                <TextInput value={searchQuery}
+                    leftSection={<MagnifyingGlassIcon />}
+                    placeholder="搜索..."
+                    onChange={v => setSearchQuery(v.currentTarget.value)} />
                 <ChatTable entries={messages} onSeek={onSeek} />
             </Stack>
         </Drawer>

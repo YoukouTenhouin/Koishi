@@ -1,11 +1,14 @@
-import { FC, useEffect, useMemo, useRef, useState } from 'react'
+import { createContext, FC, Ref, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import { useParams } from 'react-router';
 import {
+    ActionIcon,
+    Anchor,
     AppShell,
     Button,
     Card,
     Collapse,
     Container,
+    Drawer,
     Flex,
     Group,
     Paper,
@@ -13,11 +16,12 @@ import {
     ScrollArea,
     Skeleton,
     Stack,
+    Table,
     Text,
-    Title,
-    useMatches
+    Title
 } from '@mantine/core'
-import { useDisclosure } from '@mantine/hooks';
+import { useDisclosure } from '@mantine/hooks'
+import { ActivityLogIcon } from '@radix-ui/react-icons'
 import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
@@ -62,6 +66,7 @@ interface ChatGift {
     id: number
     type: "gift"
     timestamp: number
+    uid: number
     username: string
     gift_name: string
     count: number
@@ -71,6 +76,7 @@ interface ChatSub {
     id: number
     type: "sub"
     timestamp: number
+    uid: number
     username: string
     sub_name: string
     count: number
@@ -80,22 +86,24 @@ interface ChatSC {
     id: number
     type: "sc"
     timestamp: number
+    uid: number
     username: string
     content: string
     price: number
 }
 
-interface ChatMsg {
-    id: number,
+interface ChatMessage {
+    id: number
     type: "message"
-    timestamp: number,
-    username: string,
+    timestamp: number
+    uid: number
+    username: string
     content: string
 }
 
-type ChatEntry = ChatGift | ChatSub | ChatMsg | ChatSC
+type ChatEntry = ChatGift | ChatSub | ChatMessage | ChatSC
 
-const ChatMsgEntry: FC<{ msg: ChatMsg }> = ({ msg }) => {
+const ChatMessageEntry: FC<{ msg: ChatMessage }> = ({ msg }) => {
     return (
         <Group gap="1">
             <Text fw={700}>{msg.username}:</Text>
@@ -150,7 +158,7 @@ const ChatSCEntry: FC<{ sc: ChatSC }> = ({ sc }) => {
 const ChatEntry: FC<{ entry: ChatEntry }> = ({ entry }) => {
     switch (entry.type) {
         case "message":
-            return <ChatMsgEntry msg={entry} />
+            return <ChatMessageEntry msg={entry} />
         case "gift":
             return <ChatGiftEntry gift={entry} />
         case "sub":
@@ -228,35 +236,100 @@ const ChatDisplay: FC<{
     )
 }
 
-function parseDTag(item: Element, id: number): ChatMsg {
+function format_ts(ts: number) {
+    const ms = ts - Math.floor(ts)
+    ts = Math.floor(ts)
+    const s = ts % 60
+    ts = Math.floor(ts / 60)
+    const m = ts % 60
+    ts = Math.floor(ts / 60)
+
+    const ms_s = ms.toString().padEnd(2, '0').slice(0, 2)
+    const s_s = s.toString().padStart(2, '0')
+    const m_s = m.toString().padStart(2, '0')
+
+    return `${ts.toString()}:${m_s}:${s_s}.${ms_s}`
+}
+
+const ChatTable: FC<{
+    entries: ChatMessage[]
+    onSeek?: (pos: number) => void
+}> = ({ entries, onSeek }) => {
+    const [displayBegin, setDisplayBegin] = useState(0)
+    const displayEnd = Math.min(displayBegin + 100, entries.length)
+
+    const displayEntries = entries.slice(displayBegin, displayEnd)
+
+    return (
+        <ScrollArea flex="1 1 0"
+            onBottomReached={() => setDisplayBegin(v => Math.min(entries.length - 50, v + 50))}
+            onTopReached={() => setDisplayBegin(v => Math.max(0, v - 50))} >
+            <Table stickyHeader layout="fixed" styles={{
+                td: {
+                    wordWrap: "break-word"
+                }
+            }}>
+                <Table.Thead>
+                    <Table.Tr>
+                        <Table.Td w="25%">时间</Table.Td>
+                        <Table.Td w="25%">名称</Table.Td>
+                        <Table.Td w="50%">内容</Table.Td>
+                    </Table.Tr>
+                </Table.Thead>
+
+                <Table.Tbody>
+                    {displayEntries.map(e => (
+                        <Table.Tr key={e.id}>
+                            <Table.Td>
+                                <Anchor onClick={
+                                    () => onSeek && onSeek(e.timestamp)
+                                }>
+                                    {format_ts(e.timestamp)}
+                                </Anchor>
+                            </Table.Td>
+                            <Table.Td>{e.username}</Table.Td>
+                            <Table.Td>{e.content}</Table.Td>
+                        </Table.Tr>
+                    ))}
+                </Table.Tbody>
+            </Table>
+        </ScrollArea >
+    )
+}
+
+function parseDTag(item: Element, id: number): ChatMessage {
     const timestamp = parseInt(item.getAttribute("p")!.split(",")[0], 10)
+    const uid = parseInt(item.getAttribute("uid")!, 10)
     const username = item!.getAttribute("user")!
     const content = item!.textContent!
-    return { id, type: "message", timestamp, username, content }
+    return { id, type: "message", timestamp, uid, username, content }
 }
 
 function parseToastTag(item: Element, id: number): ChatSub {
     const timestamp = parseInt(item.getAttribute("ts")!, 10)
+    const uid = parseInt(item.getAttribute("uid")!, 10)
     const username = item.getAttribute("user")!
     const sub_name = item.getAttribute("role")!
     const count = parseInt(item.getAttribute("count")!, 10)
-    return { id, type: "sub", timestamp, username, sub_name, count }
+    return { id, type: "sub", timestamp, uid, username, sub_name, count }
 }
 
 function parseGiftTag(item: Element, id: number): ChatGift {
     const timestamp = parseInt(item.getAttribute("ts")!, 10)
+    const uid = parseInt(item.getAttribute("uid")!, 10)
     const username = item.getAttribute("user")!
     const gift_name = item.getAttribute("giftname")!
     const count = parseInt(item.getAttribute("count")!, 10)
-    return { id, type: "gift", timestamp, username, gift_name, count }
+    return { id, type: "gift", timestamp, uid, username, gift_name, count }
 }
 
 function parseSCTag(item: Element, id: number): ChatSC {
     const timestamp = parseInt(item.getAttribute("ts")!, 10)
+    const uid = parseInt(item.getAttribute("uid")!, 10)
     const username = item.getAttribute("user")!
     const content = item.textContent!;
     const price = parseInt(item.getAttribute("price")!, 10)
-    return { id, type: "sc", timestamp, username, content, price }
+    return { id, type: "sc", timestamp, uid, username, content, price }
 }
 
 async function loadMessages(uuid: string) {
@@ -297,51 +370,58 @@ async function loadMessages(uuid: string) {
 
 const SideInfo: FC<{
     info: SchemaTypes.Video | null
+    chats: ChatEntry[]
     playbackPosition: number
-}> = ({ info, playbackPosition }) => {
-    const [entries, setEntries] = useState<ChatEntry[]>([])
-
-    useEffect(() => {
-        const loader = async () => {
-            if (!info) return
-
-            const entries = await loadMessages(info.uuid)
-            setEntries(entries)
-        }
-        loader()
-    }, [info])
-
+}> = ({ info, chats, playbackPosition }) => {
     return (
         <Stack flex={{ base: 1, sm: 0 }} miw={{ sm: "300px" }}>
             <VODInfo info={info} />
-            <ChatDisplay playbackPosition={playbackPosition} entries={entries} />
+            <ChatDisplay playbackPosition={playbackPosition} entries={chats} />
         </Stack>
+    )
+}
+
+const ChatDrawerContext = createContext({
+    opened: false,
+    onClose: () => { }
+})
+
+const ChatDrawer: FC<{
+    entries: ChatEntry[],
+    onSeek?: (pos: number) => void
+}> = ({ entries, onSeek }) => {
+    const messages = useMemo(() => entries.filter(e => e.type == "message"), [entries])
+
+    const { opened, onClose } = useContext(ChatDrawerContext)
+
+    return (
+        <Drawer position="right" onClose={onClose} opened={opened}>
+            <Stack h="calc(100dvh - 60px)">
+                <ChatTable entries={messages} onSeek={onSeek} />
+            </Stack>
+        </Drawer>
     )
 }
 
 const VideoPlayer: FC<{
     src: string
+    ref?: Ref<HTMLVideoElement>
     onTimeUpdate?: React.ReactEventHandler<HTMLVideoElement>
-}> = ({ src, onTimeUpdate }) => {
-    const videoPlayerFlex = useMatches({
-        base: 0,
-        sm: 1
-    })
-
+}> = ({ src, ref, onTimeUpdate }) => {
     return (
         <video
             controls
             style={{
-                flex: videoPlayerFlex,
+                flex: 1,
                 minWidth: 0,
                 minHeight: 0,
                 objectFit: "contain",
                 backgroundColor: "black"
             }}
-            onTimeUpdate={onTimeUpdate}
-        >
+            ref={ref}
+            onTimeUpdate={onTimeUpdate}>
             <source src={src} />
-        </video >
+        </video>
     )
 }
 
@@ -350,19 +430,41 @@ const VideoView: FC<{
     source?: string
 }> = ({ video, source }) => {
     const [playbackPosition, setPlaybackPosition] = useState(0)
+    const [chats, setChats] = useState<ChatEntry[]>([])
+
+    const videoRef = useRef<HTMLVideoElement>(null)
+
+    useEffect(() => {
+        const loader = async () => {
+            if (!video) return
+
+            const entries = await loadMessages(video.uuid)
+            setChats(entries)
+        }
+        loader()
+    }, [video])
 
     return (
         <Flex
-            flex={1}
+            flex="1 1 0"
+            miw={0}
+            mih={0}
             direction={{ base: "column", sm: "row" }}>
             {source && (
                 <VideoPlayer
+                    ref={videoRef}
                     src={source}
                     onTimeUpdate={e => {
                         setPlaybackPosition(e.currentTarget.currentTime)
                     }}
                 />)}
-            <SideInfo info={video} playbackPosition={playbackPosition} />
+            <SideInfo info={video} chats={chats} playbackPosition={playbackPosition} />
+            <ChatDrawer
+                entries={chats}
+                onSeek={(pos) => {
+                    console.log(videoRef.current)
+                    if (videoRef.current) videoRef.current.currentTime = pos
+                }} />
         </Flex>
     )
 }
@@ -461,12 +563,12 @@ const RestrictedView: FC<{
     )
 }
 
-
 const Video: FC = () => {
     const params = useParams()
     const video_id = params.video!
 
     const { result: video, error } = useAPI(schemas.Video, `/api/video/${video_id}`)
+    const [drawerOpened, { open: drawerOpen, close: drawerClose }] = useDisclosure(false)
 
     return (
         <AppShell
@@ -478,12 +580,21 @@ const Video: FC = () => {
                 }
             }}>
             <AppShell.Header>
-                <Group h="100%" px="md">
+                <Group h="100%" px="md" justify="space-between">
                     <SiteTitle />
+                    <ActionIcon variant="transparent">
+                        <ActivityLogIcon onClick={drawerOpen} />
+                    </ActionIcon>
                 </Group>
             </AppShell.Header>
             <AppShell.Main>
-                {error === null ? <RestrictedView video={video} /> : <ErrorPage error={error} />}
+                <ChatDrawerContext.Provider value={{ opened: drawerOpened, onClose: drawerClose }}>
+                    {error === null ? (
+                        <RestrictedView video={video} />
+                    ) : (
+                        <ErrorPage error={error} />
+                    )}
+                </ChatDrawerContext.Provider>
             </AppShell.Main>
         </AppShell >
     )

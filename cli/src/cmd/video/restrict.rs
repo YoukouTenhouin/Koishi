@@ -93,14 +93,8 @@ pub(super) fn main(args: Args, restricted: bool) {
     pb.finish();
     println!("Multi-part copy finished");
 
-    api::video::restricted_copy_finish(
-        &args.uuid,
-        &source,
-        hash,
-        &copy_start.upload_id,
-        etags,
-    )
-    .expect("Failed to finish upload");
+    api::video::restricted_copy_finish(&args.uuid, &source, hash, &copy_start.upload_id, etags)
+        .expect("Failed to finish upload");
 
     println!("Completed")
 }

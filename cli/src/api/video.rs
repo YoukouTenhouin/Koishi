@@ -267,7 +267,7 @@ pub(crate) fn restricted_copy_finish(
     upload_id: &str,
     etags: Vec<String>,
 ) -> Result<()> {
-    let copy_source =copy_source.to_string();
+    let copy_source = copy_source.to_string();
     let upload_id = upload_id.to_string();
     let req_body = ReqPostRestricted::CopyFinish {
         copy_source,

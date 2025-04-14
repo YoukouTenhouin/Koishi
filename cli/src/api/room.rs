@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use tabled::{Tabled, derive::display};
 
 use crate::global_options;
-use crate::helpers;
+use crate::helpers::{self, se::BoolAsInt};
 
 use super::{
     Result,
@@ -29,8 +29,10 @@ pub(crate) struct RoomListVideoEntry {
     title: String,
     #[tabled(rename = "Cover", display("display::option", "<Not set>"))]
     cover: Option<String>,
-    #[tabled(rename = "Username", display("helpers::tabled::timestamp", self))]
+    #[tabled(rename = "Date", display("helpers::tabled::timestamp", self))]
     timestamp: i64,
+    #[tabled(rename = "Restricted")]
+    restricted: BoolAsInt,
 }
 
 pub(crate) fn create(room: Room) -> Result<()> {

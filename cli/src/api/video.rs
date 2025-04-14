@@ -3,7 +3,7 @@ use std::{error, path::Path, result, time::Duration};
 use tabled::{Tabled, derive::display};
 
 use crate::global_options;
-use crate::helpers::{self, s3};
+use crate::helpers::{self, s3, se::BoolAsInt};
 
 use super::{
     Result,
@@ -20,6 +20,8 @@ pub(crate) struct Video {
     pub cover: Option<String>,
     #[tabled(rename = "Room ID")]
     pub room: u64,
+    #[tabled(rename = "Restricted")]
+    pub restricted: BoolAsInt,
     #[tabled(rename = "Date", display("helpers::tabled::timestamp", self))]
     pub timestamp: i64,
 }
@@ -30,7 +32,7 @@ struct VideoCreateInfo {
     cover: Option<String>,
     timestamp: i64,
     room: u64,
-    restricted: u64,
+    restricted: BoolAsInt,
     restricted_hash: Option<String>,
 }
 
@@ -117,7 +119,7 @@ pub(crate) fn create(
         return Ok(());
     }
 
-    let restricted = restricted_hash.as_ref().and(Some(1)).unwrap_or(0);
+    let restricted: BoolAsInt = restricted_hash.is_some().into();
 
     let video = VideoCreateInfo {
         title,

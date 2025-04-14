@@ -2,7 +2,7 @@ import { AwsClient } from 'aws4fetch'
 import * as v from 'valibot'
 
 import { obj_urls } from '@flib/objects'
-import { video_by_uuid, video_by_uuid_with_hash, run_query } from '@flib/queries'
+import { video_by_uuid_with_hash, run_query } from '@flib/queries'
 import { get_req_body } from '@flib/requests'
 import { res } from '@flib/responses'
 import { Env } from '@flib/types'
@@ -49,6 +49,18 @@ const PostBody = v.variant('command', [
     }),
 ])
 
+async function get_s3_url_info(aws: AwsClient, url: string): Promise<[boolean, number | null]> {
+    const headRes = await aws.fetch(url, { method: "HEAD" })
+    if (headRes.status === 404) {
+        return [false, null]
+    } else if (!headRes.ok) {
+        throw Error(`Status { headRes.status } while requesting from s3`)
+    }
+
+    const length = parseInt(headRes.headers.get("Content-Length")!, 10)
+    return [true, length]
+}
+
 export const onRequestPost: PagesFunction<Env> = async (context) => {
     const uuid = context.params.uuid as string
 
@@ -80,14 +92,19 @@ export const onRequestPost: PagesFunction<Env> = async (context) => {
     if (command == "copy_start") {
         const { part_size } = req_body.output
 
-        const headRes = await aws.fetch(src_url, { method: "HEAD" })
-        if (headRes.status === 404) {
-            return res.not_found("copy_source does not exist")
-        } else if (!headRes.ok) {
-            return res.s3_error(`Status { headRes.status } while requesting from s3`)
+        const [exists, length] = await get_s3_url_info(aws, src_url)
+        try {
+            if (!exists) {
+                return res.not_found("copy_source does not exist")
+            }
+        } catch (e) {
+            if (e instanceof Error) {
+                return res.s3_error(e?.message)
+            } else {
+                return res.internal_server_error()
+            }
         }
 
-        const length = parseInt(headRes.headers.get("Content-Length")!, 10)
         const parts = Math.ceil(length / part_size)
 
         // init multipart upload
@@ -211,6 +228,24 @@ export const onRequestPut: PagesFunction<Env> = async (context) => {
         }
 
         old_key = unrestricted_key
+    }
+
+    const aws = new AwsClient({
+        accessKeyId: context.env.S3_KEY_ID,
+        secretAccessKey: context.env.S3_KEY
+    });
+    const url = obj_urls.from_key(context.env, old_key)
+    const [exists] = await get_s3_url_info(aws, url)
+    try {
+        if (!exists) {
+            return res.ok({})
+        }
+    } catch (e) {
+        if (e instanceof Error) {
+            return res.s3_error(e?.message)
+        } else {
+            return res.internal_server_error()
+        }
     }
 
     return res.ok({ copy_source: old_key })

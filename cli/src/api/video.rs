@@ -50,7 +50,7 @@ pub(crate) struct VideoUploadStartResponse {
 
 #[derive(Deserialize)]
 pub(crate) struct VideoSetRestrictedResponse {
-    pub copy_source: String,
+    pub copy_source: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -229,7 +229,7 @@ pub(crate) fn set_restricted(
     uuid: &str,
     restricted: bool,
     hash: &str,
-) -> Result<Option<VideoSetRestrictedResponse>> {
+) -> Result<VideoSetRestrictedResponse> {
     let req_body = ReqSetRestricted {
         restricted: restricted as u64,
         hash: hash.to_string(),
@@ -243,10 +243,11 @@ pub(crate) fn set_restricted(
 
 pub(crate) fn restricted_copy_start(
     uuid: &str,
-    copy_source: String,
+    copy_source: &str,
     hash: Option<String>,
     part_size: u64,
 ) -> Result<RestrictedCopyStartResponse> {
+    let copy_source = copy_source.to_string();
     let req_body = ReqPostRestricted::CopyStart {
         copy_source,
         hash,
@@ -261,11 +262,13 @@ pub(crate) fn restricted_copy_start(
 
 pub(crate) fn restricted_copy_finish(
     uuid: &str,
-    copy_source: String,
+    copy_source: &str,
     hash: Option<String>,
-    upload_id: String,
+    upload_id: &str,
     etags: Vec<String>,
 ) -> Result<()> {
+    let copy_source =copy_source.to_string();
+    let upload_id = upload_id.to_string();
     let req_body = ReqPostRestricted::CopyFinish {
         copy_source,
         hash,

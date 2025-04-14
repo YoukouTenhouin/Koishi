@@ -14,8 +14,6 @@ pub(super) struct Args {
     password: String,
     #[arg(short = 's', long, default_value_t = 100_000_000)]
     part_size: u64,
-    #[arg(short, long, default_value_t = 10)]
-    retry_part: u64,
 
     #[arg(short, long)]
     thread_count: Option<usize>,
@@ -29,18 +27,18 @@ pub(super) fn main(args: Args, restricted: bool) {
     println!("Updating restricted state");
     let ret = api::video::set_restricted(&args.uuid, restricted, &hash).unwrap();
 
-    if ret.is_none() {
+    if ret.copy_source.is_none() {
         println!("Video not uploaded yet; skipped renaming");
         return;
     }
-    let ret = ret.unwrap();
+    let source = ret.copy_source.unwrap();
 
     let hash = if restricted { Some(hash) } else { None };
 
     std::println!("Intiating multi-part copy");
     let copy_start = api::video::restricted_copy_start(
         &args.uuid,
-        ret.copy_source.clone(),
+        source.as_str(),
         hash.clone(),
         args.part_size,
     )
@@ -81,7 +79,7 @@ pub(super) fn main(args: Args, restricted: bool) {
             let etag = uploader
                 .url(url)
                 .mimetype("video/mp4")
-                .copy(&ret.copy_source)
+                .copy(&source)
                 .copy_range_from_to(range_from, range_to)
                 .upload()
                 .expect("S3 upload error")
@@ -97,9 +95,9 @@ pub(super) fn main(args: Args, restricted: bool) {
 
     api::video::restricted_copy_finish(
         &args.uuid,
-        ret.copy_source,
+        &source,
         hash,
-        copy_start.upload_id,
+        &copy_start.upload_id,
         etags,
     )
     .expect("Failed to finish upload");

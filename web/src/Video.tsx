@@ -19,7 +19,8 @@ import {
     Table,
     Text,
     TextInput,
-    Title
+    Title,
+    useMatches,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
 import { ActivityLogIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
@@ -439,13 +440,22 @@ const VideoPlayer: FC<{
     ref?: Ref<HTMLVideoElement>
     onTimeUpdate?: React.ReactEventHandler<HTMLVideoElement>
 }> = ({ src, ref, onTimeUpdate }) => {
+    const flex = useMatches({
+        base: 0,
+        sm: 1
+    })
+
+    const minHeight = useMatches({
+        sm: 0,
+    })
+
     return (
         <video
             controls
             style={{
-                flex: 1,
+                flex: flex,
                 minWidth: 0,
-                minHeight: 0,
+                minHeight: minHeight,
                 objectFit: "contain",
                 backgroundColor: "black"
             }}

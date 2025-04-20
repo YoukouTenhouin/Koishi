@@ -257,15 +257,8 @@ const ChatTable: FC<{
     entries: ChatMessage[]
     onSeek?: (pos: number) => void
 }> = ({ entries, onSeek }) => {
-    const [displayBegin, setDisplayBegin] = useState(0)
-    const displayEnd = Math.min(displayBegin + 100, entries.length)
-
-    const displayEntries = entries.slice(displayBegin, displayEnd)
-
     return (
-        <ScrollArea flex="1 1 0"
-            onBottomReached={() => setDisplayBegin(v => Math.min(entries.length - 50, v + 50))}
-            onTopReached={() => setDisplayBegin(v => Math.max(0, v - 50))} >
+        <ScrollArea flex="1 1 0">
             <Table stickyHeader layout="fixed" styles={{
                 td: {
                     wordWrap: "break-word"
@@ -280,7 +273,7 @@ const ChatTable: FC<{
                 </Table.Thead>
 
                 <Table.Tbody>
-                    {displayEntries.map(e => (
+                    {entries.map(e => (
                         <Table.Tr key={e.id}>
                             <Table.Td>
                                 <Anchor onClick={
@@ -499,7 +492,8 @@ const VideoView: FC<{
                         setPlaybackPosition(e.currentTarget.currentTime)
                     }}
                 />)}
-            <SideInfo info={video} chats={chats} playbackPosition={playbackPosition} />
+            <SideInfo info={video} chats={chats}
+                playbackPosition={playbackPosition} />
             <ChatDrawer
                 entries={chats}
                 onSeek={(pos) => {

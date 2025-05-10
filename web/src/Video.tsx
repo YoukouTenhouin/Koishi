@@ -1,29 +1,29 @@
-import { createContext, FC, Ref, useContext, useEffect, useMemo, useRef, useState } from 'react'
-import { useParams } from 'react-router';
+import { createContext, createRef, FC, Ref, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, Link } from 'react-router';
 import {
-    ActionIcon,
     Anchor,
     AppShell,
     Button,
     Card,
     Collapse,
     Container,
-    Drawer,
     Flex,
     Group,
+    NavLink,
     Paper,
     PasswordInput,
     ScrollArea,
     Skeleton,
     Stack,
     Table,
+    Tabs,
     Text,
     TextInput,
     Title,
     useMatches,
 } from '@mantine/core'
 import { useDisclosure } from '@mantine/hooks'
-import { ActivityLogIcon, MagnifyingGlassIcon } from '@radix-ui/react-icons'
+import { MagnifyingGlassIcon } from '@radix-ui/react-icons'
 import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
@@ -34,6 +34,33 @@ import ErrorPage from '@components/Error';
 import { restricted_hash } from '@lib/cryptography';
 import { date_stamp } from '@lib/chrono';
 import Cover from '@components/Cover';
+
+const PartsListSchema = v.array(v.omit(schemas.Video, ["room"]))
+
+const PartsList: FC<{ uuid: string }> = ({ uuid }) => {
+    const { loading, result } = useAPI(PartsListSchema, `/api/video/${uuid}/parts`)
+
+    if (loading) {
+        return (
+            <NavLink>
+                <Skeleton>VOD Title</ Skeleton>
+            </NavLink>
+        )
+    }
+
+    return (
+        <ScrollArea>
+            {result!.map((e, i) => (
+                <NavLink
+                    key={e.uuid}
+                    active={e.uuid == uuid}
+                    to={`/video/${e.uuid}`}
+                    component={Link}
+                    label={`${i + 1}. ${date_stamp(new Date(e.record_time))}`} />
+            ))}
+        </ScrollArea>
+    )
+}
 
 const VODInfo: FC<{ info: SchemaTypes.Video | null }> = ({ info }) => {
     const title = info?.title ?? "PLACEHOLDER"
@@ -239,18 +266,16 @@ const ChatDisplay: FC<{
 }
 
 function format_ts(ts: number) {
-    const ms = ts - Math.floor(ts)
     ts = Math.floor(ts)
     const s = ts % 60
     ts = Math.floor(ts / 60)
     const m = ts % 60
     ts = Math.floor(ts / 60)
 
-    const ms_s = ms.toString().padEnd(2, '0').slice(0, 2)
     const s_s = s.toString().padStart(2, '0')
     const m_s = m.toString().padStart(2, '0')
 
-    return `${ts.toString()}:${m_s}:${s_s}.${ms_s}`
+    return `${ts.toString()}:${m_s}:${s_s}`
 }
 
 const ChatTable: FC<{
@@ -363,22 +388,9 @@ async function loadMessages(uuid: string) {
     return entries
 }
 
-const SideInfo: FC<{
-    info: SchemaTypes.Video | null
-    chats: ChatEntry[]
-    playbackPosition: number
-}> = ({ info, chats, playbackPosition }) => {
-    return (
-        <Stack flex={{ base: 1, sm: 0 }} miw={{ sm: "300px" }}>
-            <VODInfo info={info} />
-            <ChatDisplay playbackPosition={playbackPosition} entries={chats} />
-        </Stack>
-    )
-}
 
-const ChatDrawerContext = createContext({
-    opened: false,
-    onClose: () => { }
+const VideoPlayerContext = createContext({
+    ref: createRef<HTMLVideoElement>()
 })
 
 function filter_by_search(messages: ChatMessage[], query: string) {
@@ -402,10 +414,9 @@ function filter_by_search(messages: ChatMessage[], query: string) {
     return ret
 }
 
-const ChatDrawer: FC<{
+const ChatList: FC<{
     entries: ChatEntry[],
-    onSeek?: (pos: number) => void
-}> = ({ entries, onSeek }) => {
+}> = ({ entries }) => {
     const [searchQuery, setSearchQuery] = useState("")
     const messages = useMemo(() => {
         const ret = entries
@@ -413,18 +424,70 @@ const ChatDrawer: FC<{
         return filter_by_search(ret, searchQuery.trim())
     }, [entries, searchQuery])
 
-    const { opened, onClose } = useContext(ChatDrawerContext)
+    const { ref } = useContext(VideoPlayerContext)
 
     return (
-        <Drawer position="right" onClose={onClose} opened={opened}>
-            <Stack h="calc(100dvh - 60px)">
-                <TextInput value={searchQuery}
-                    leftSection={<MagnifyingGlassIcon />}
-                    placeholder="搜索..."
-                    onChange={v => setSearchQuery(v.currentTarget.value)} />
-                <ChatTable entries={messages} onSeek={onSeek} />
-            </Stack>
-        </Drawer>
+        <Stack>
+            <TextInput value={searchQuery}
+                leftSection={<MagnifyingGlassIcon />}
+                placeholder="搜索..."
+                onChange={v => setSearchQuery(v.currentTarget.value)} />
+            <ChatTable entries={messages} onSeek={v => {
+                if (!ref.current) return
+                ref.current.currentTime = v
+            }} />
+        </Stack>
+    )
+}
+
+const SideInfo: FC<{
+    info: SchemaTypes.Video | null
+    chats: ChatEntry[]
+    playbackPosition: number
+}> = ({ info, chats, playbackPosition }) => {
+    return (
+        <Stack flex={{ base: 1, sm: 0 }} miw={{ sm: "400px" }}>
+            <VODInfo info={info} />
+            <Tabs defaultValue="chat-display" styles={{
+                root: {
+                    flex: "1 1 0",
+                    display: "flex",
+                    flexDirection: "column",
+                },
+                list: {
+                    flex: "0",
+                },
+                panel: {
+                    flex: "1 1 0",
+                    display: "flex",
+                    minHeight: 0,
+                }
+            }}>
+                <Tabs.List>
+                    <Tabs.Tab value="chat-display">
+                        实时弹幕重放
+                    </Tabs.Tab>
+                    <Tabs.Tab value="parts">
+                        分P
+                    </Tabs.Tab>
+                    <Tabs.Tab value="chat-list">
+                        全部弹幕列表
+                    </Tabs.Tab>
+                </Tabs.List>
+
+                <Tabs.Panel value="chat-display">
+                    <ChatDisplay playbackPosition={playbackPosition} entries={chats} />
+                </Tabs.Panel>
+
+                <Tabs.Panel value="parts">
+                    {info && <PartsList uuid={info.uuid} />}
+                </Tabs.Panel>
+
+                <Tabs.Panel value="chat-list">
+                    <ChatList entries={chats} />
+                </Tabs.Panel>
+            </Tabs>
+        </Stack>
     )
 }
 
@@ -479,28 +542,24 @@ const VideoView: FC<{
     }, [video])
 
     return (
-        <Flex
-            flex="1 1 0"
-            miw={0}
-            mih={0}
-            direction={{ base: "column", sm: "row" }}>
-            {source && (
-                <VideoPlayer
-                    ref={videoRef}
-                    src={source}
-                    onTimeUpdate={e => {
-                        setPlaybackPosition(e.currentTarget.currentTime)
-                    }}
-                />)}
-            <SideInfo info={video} chats={chats}
-                playbackPosition={playbackPosition} />
-            <ChatDrawer
-                entries={chats}
-                onSeek={(pos) => {
-                    console.log(videoRef.current)
-                    if (videoRef.current) videoRef.current.currentTime = pos
-                }} />
-        </Flex>
+        <VideoPlayerContext.Provider value={{ ref: videoRef }}>
+            <Flex
+                flex="1 1 0"
+                miw={0}
+                mih={0}
+                direction={{ base: "column", sm: "row" }}>
+                {source && (
+                    <VideoPlayer
+                        ref={videoRef}
+                        src={source}
+                        onTimeUpdate={e => {
+                            setPlaybackPosition(e.currentTarget.currentTime)
+                        }}
+                    />)}
+                <SideInfo info={video} chats={chats}
+                    playbackPosition={playbackPosition} />
+            </Flex>
+        </VideoPlayerContext.Provider>
     )
 }
 
@@ -603,7 +662,6 @@ const Video: FC = () => {
     const video_id = params.video!
 
     const { result: video, error } = useAPI(schemas.Video, `/api/video/${video_id}`)
-    const [drawerOpened, { open: drawerOpen, close: drawerClose }] = useDisclosure(false)
 
     return (
         <AppShell
@@ -617,19 +675,14 @@ const Video: FC = () => {
             <AppShell.Header>
                 <Group h="100%" px="md" justify="space-between">
                     <SiteTitle />
-                    <ActionIcon variant="transparent">
-                        <ActivityLogIcon onClick={drawerOpen} />
-                    </ActionIcon>
                 </Group>
             </AppShell.Header>
             <AppShell.Main>
-                <ChatDrawerContext.Provider value={{ opened: drawerOpened, onClose: drawerClose }}>
-                    {error === null ? (
-                        <RestrictedView video={video} />
-                    ) : (
-                        <ErrorPage error={error} />
-                    )}
-                </ChatDrawerContext.Provider>
+                {error === null ? (
+                    <RestrictedView video={video} />
+                ) : (
+                    <ErrorPage error={error} />
+                )}
             </AppShell.Main>
         </AppShell >
     )

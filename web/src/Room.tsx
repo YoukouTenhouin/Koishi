@@ -22,7 +22,10 @@ import { schemas } from '@lib/schemas'
 import ErrorPage from '@components/Error'
 import { date_stamp } from '@lib/chrono'
 
-const VideoListEntry = v.omit(schemas.Video, ["room"])
+const VideoListEntry = v.object({
+    ...v.omit(schemas.Video, ["room"]).entries,
+    parts: v.number()
+})
 type VideoListEntry = v.InferOutput<typeof VideoListEntry>
 const VideoList = v.array(VideoListEntry)
 type VideoList = v.InferOutput<typeof VideoList>
@@ -71,6 +74,7 @@ const VideoEntry: FC<{
 
             <Text fw={700}>{title}</Text>
             <Text>直播时间: {date_stamp(stream_date)}</Text>
+            <Text>共 {video.parts}P</Text>
         </Card >
     )
 }
@@ -80,8 +84,6 @@ const VideoListView: FC<{ room_id: string }> = ({ room_id }) => {
     const [error, setError] = useState<APIError | null>(null)
     const [list, setList] = useState<VideoList>([])
     const [exhausted, setExhausted] = useState(false)
-
-    console.log(list)
 
     const loadMore = useCallback(async () => {
         if (loading) return

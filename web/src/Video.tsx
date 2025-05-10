@@ -395,20 +395,21 @@ const VideoPlayerContext = createContext({
 
 function filter_by_search(messages: ChatMessage[], query: string) {
     const queries = query.split(" ")
+    console.log(queries)
     let ret = messages
     for (let q of queries) {
         if (q.startsWith("uid:")) {
-            const uid = parseInt(query.replace("uid:", ""))
+            const uid = parseInt(q.replace("uid:", ""))
             ret = ret.filter(e => e.uid == uid)
         } else if (q.startsWith("uname:")) {
-            const uname = query.replace("uname:", "")
+            const uname = q.replace("uname:", "")
             if (!uname) {
                 // wait for more input
                 return []
             }
             ret = ret.filter(e => e.username.startsWith(uname))
         } else {
-            ret = ret.filter(e => e.content.includes(query))
+            ret = ret.filter(e => e.content.includes(q))
         }
     }
     return ret

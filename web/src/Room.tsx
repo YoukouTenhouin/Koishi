@@ -1,5 +1,5 @@
-import { FC } from 'react'
-import { useDisclosure } from '@mantine/hooks'
+import { FC, useCallback, useEffect, useState } from 'react'
+import { useDisclosure, useInViewport } from '@mantine/hooks'
 import {
     AppShell,
     Burger,
@@ -17,20 +17,41 @@ import * as v from 'valibot'
 
 import SiteTitle from '@components/SiteTitle'
 import Cover from '@components/Cover'
-import { useAPI } from '@lib/api'
+import { APIError, requestAPI, useAPI } from '@lib/api'
 import { schemas } from '@lib/schemas'
 import ErrorPage from '@components/Error'
 import { date_stamp } from '@lib/chrono'
 
 const VideoListEntry = v.omit(schemas.Video, ["room"])
+type VideoListEntry = v.InferOutput<typeof VideoListEntry>
 const VideoList = v.array(VideoListEntry)
+type VideoList = v.InferOutput<typeof VideoList>
 
 function phImg(width: number, height: number, text: string) {
     return `https://placehold.co/${width}x${height}?text=${encodeURIComponent(text)}`
 }
 
+const VideoLoader: FC<{
+    onLoad(): void
+}> = ({ onLoad }) => {
+    const { ref, inViewport } = useInViewport()
+
+    useEffect(() => {
+        if (!inViewport) return
+
+        onLoad()
+    }, [inViewport])
+
+    return (
+        <Group ref={ref}>
+            <Loader />
+            <Text>少女折寿中...</Text>
+        </Group>
+    )
+}
+
 const VideoEntry: FC<{
-    video: v.InferOutput<typeof VideoListEntry>
+    video: VideoListEntry
 }> = ({ video }) => {
     const { uuid, title, timestamp } = video
 
@@ -54,10 +75,38 @@ const VideoEntry: FC<{
 }
 
 const VideoListView: FC<{ room_id: string }> = ({ room_id }) => {
-    const { loading, result, error } = useAPI(VideoList, `/api/room/${room_id}/video`)
-    if (loading) {
-        return <Loader />
-    } else if (error) {
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState<APIError | null>(null)
+    const [list, setList] = useState<VideoList>([])
+    const [exhausted, setExhausted] = useState(false)
+
+    console.log(list)
+
+    const loadMore = useCallback(async () => {
+        if (loading) return
+
+        setLoading(true)
+        setError(null)
+        try {
+            const result = await requestAPI(VideoList,
+                `/api/room/${room_id}/video?offset=${list.length}`)
+            if (result.length === 0) {
+                setExhausted(true)
+            } else {
+                setList(v => [...v, ...result])
+            }
+        } catch (e) {
+            if (e instanceof APIError) {
+                setError(e)
+            } else {
+                throw e
+            }
+        } finally {
+            setLoading(false)
+        }
+    }, [list, loading])
+
+    if (error) {
         return <ErrorPage error={error} />
     }
 
@@ -66,7 +115,8 @@ const VideoListView: FC<{ room_id: string }> = ({ room_id }) => {
             gap="md"
             wrap="wrap"
         >
-            {result!.map(v => <VideoEntry key={v.uuid} video={v} />)}
+            {list.map(v => <VideoEntry key={v.uuid} video={v} />)}
+            {!exhausted && <VideoLoader onLoad={loadMore} />}
         </Flex>
     )
 }

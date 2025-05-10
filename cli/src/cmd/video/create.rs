@@ -13,8 +13,11 @@ pub(super) struct Args {
     #[arg(short, long)]
     title: String,
 
-    #[arg(short, long)]
-    date: String,
+    #[arg(long)]
+    stream_time: String,
+
+    #[arg(long)]
+    record_time: String,
 
     #[arg(short, long)]
     cover: Option<String>,
@@ -26,20 +29,19 @@ pub(super) struct Args {
     room: u64,
 }
 
+fn parse_timestamp(date_str: &str) -> i64 {
+    date_str.parse::<DateTime<Utc>>()
+        .expect(format!("Failed to parse timestamp {date_str}").as_str())
+        .timestamp_millis()
+}
+
 pub(super) fn main(args: Args) {
     let uuid = args
         .uuid
         .unwrap_or_else(|| Uuid::now_v7().as_simple().to_string());
 
-    let ts = args.date.parse::<DateTime<Utc>>();
-    if let Err(e) = ts {
-        eprintln!(
-            "Can not parse date value \"{}\": {}",
-            args.date,
-            e.to_string()
-        );
-        std::process::exit(-1);
-    }
+    let stream_time = parse_timestamp(&args.stream_time);
+    let record_time = parse_timestamp(&args.record_time);
 
     let restricted_hash = args.password.map(|v| restricted_hash(&uuid, &v).unwrap());
 
@@ -47,7 +49,8 @@ pub(super) fn main(args: Args) {
         &uuid,
         args.title,
         args.cover,
-        ts.unwrap().timestamp_millis(),
+	stream_time,
+	record_time,
         args.room,
         restricted_hash,
     )

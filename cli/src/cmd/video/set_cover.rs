@@ -17,5 +17,5 @@ pub(crate) fn main(args: Args) {
         println!("Cover {} uploaded", res.hash)
     }
 
-    crate::api::video::update(&args.uuid, None, Some(res.hash), None).unwrap()
+    crate::api::video::update(&args.uuid, None, Some(res.hash), None, None).unwrap()
 }

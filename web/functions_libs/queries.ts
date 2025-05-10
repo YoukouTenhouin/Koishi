@@ -24,7 +24,7 @@ export async function video_by_uuid(db: D1Database, uuid: string): Promise<{
 }> {
     const ps = db.prepare(
         "SELECT "
-        + "LOWER(HEX(uuid)) as uuid, title, cover, room, stream_time, restricted "
+        + "LOWER(HEX(uuid)) as uuid, title, cover, room, stream_time, record_time, restricted "
         + "FROM video WHERE uuid = UNHEX(?)"
     ).bind(uuid)
 
@@ -45,7 +45,7 @@ export async function video_by_uuid_with_hash(db: D1Database, uuid: string): Pro
 }> {
     const ps = db.prepare(
         "SELECT "
-        + "LOWER(HEX(uuid)) as uuid, title, cover, room, stream_time, "
+        + "LOWER(HEX(uuid)) as uuid, title, cover, room, stream_time, record_time, "
         + "restricted, restricted_hash "
         + "FROM video WHERE uuid = UNHEX(?)"
     ).bind(uuid)

@@ -10,6 +10,7 @@ const ReqInsertCommon = v.object({
     cover: v.nullable(v.string()),
     room: v.number(),
     stream_time: v.number(),
+    record_time: v.number(),
 })
 
 const ReqInsertUnrestricted = v.object({
@@ -31,14 +32,15 @@ const ReqUpdate = v.partial(v.object({
     title: v.string(),
     cover: v.string(),
     stream_time: v.number(),
+    record_time: v.number(),
 }))
 
 async function insert(uuid: string, v: v.InferOutput<typeof ReqInsert>, db: D1Database) {
     const ps = db.prepare(
         "INSERT OR IGNORE INTO video "
-        + "(uuid, title, cover, room, stream_time, restricted, restricted_hash) "
-        + "VALUES (UNHEX(?), ?, ?, ?, ?, ?, ?)"
-    ).bind(uuid, v.title, v.cover, v.room, v.stream_time,
+        + "(uuid, title, cover, room, stream_time, record_time, restricted, restricted_hash) "
+        + "VALUES (UNHEX(?), ?, ?, ?, ?, ?, ?, ?)"
+    ).bind(uuid, v.title, v.cover, v.room, v.stream_time, v.record_time,
         v.restricted ?? 0, v.restricted_hash ?? null)
     const ret = await run_query(ps)
     if (!ret.success) {
@@ -71,14 +73,15 @@ async function update(id: string, d: v.InferOutput<typeof ReqUpdate>, db: D1Data
         return res.db_transaction_error(fetch_error)
     }
 
-    const { title, cover, stream_time } = d
+    const { title, cover, stream_time, record_time } = d
 
     const ps = db.prepare(
-        "UPDATE video SET title=?, cover=?, stream_time=? WHERE uuid=UNHEX(?)"
+        "UPDATE video SET title=?, cover=?, stream_time=?, record_time=? WHERE uuid=UNHEX(?)"
     ).bind(
         title ?? video.title,
         cover ?? video.cover,
         stream_time ?? video.stream_time,
+        record_time ?? video.record_time,
         id
     )
     const ret = await run_query(ps)

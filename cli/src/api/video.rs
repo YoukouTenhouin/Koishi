@@ -24,6 +24,8 @@ pub(crate) struct Video {
     pub restricted: BoolAsInt,
     #[tabled(rename = "Stream Time", display("helpers::tabled::timestamp", self))]
     pub stream_time: i64,
+    #[tabled(rename = "Record Time", display("helpers::tabled::timestamp", self))]
+    pub record_time: i64,
 }
 
 #[derive(Serialize)]
@@ -31,6 +33,7 @@ struct VideoCreateInfo {
     title: String,
     cover: Option<String>,
     stream_time: i64,
+    record_time: i64,
     room: u64,
     restricted: BoolAsInt,
     restricted_hash: Option<String>,
@@ -68,6 +71,8 @@ struct VideoUpdateInfo {
     cover: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     stream_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    record_time: Option<i64>,
 }
 
 #[derive(Serialize)]
@@ -115,6 +120,7 @@ pub(crate) fn create(
     title: String,
     cover: Option<String>,
     stream_time: i64,
+    record_time: i64,
     room: u64,
     restricted_hash: Option<String>,
 ) -> Result<()> {
@@ -130,6 +136,7 @@ pub(crate) fn create(
         cover,
         room,
         stream_time,
+	record_time,
         restricted,
         restricted_hash,
     };
@@ -145,6 +152,7 @@ pub(crate) fn update(
     title: Option<String>,
     cover: Option<String>,
     stream_time: Option<i64>,
+    record_time: Option<i64>,
 ) -> Result<()> {
     if global_options::DRY.get().unwrap().clone() {
         println!("skipping request due to being dry run");
@@ -155,6 +163,7 @@ pub(crate) fn update(
         title,
         cover,
         stream_time,
+	record_time,
     };
 
     request::put(format!("video/{uuid}"))

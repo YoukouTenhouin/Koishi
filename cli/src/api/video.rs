@@ -22,7 +22,7 @@ pub(crate) struct Video {
     pub room: u64,
     #[tabled(rename = "Restricted")]
     pub restricted: BoolAsInt,
-    #[tabled(rename = "Date", display("helpers::tabled::timestamp", self))]
+    #[tabled(rename = "Stream Time", display("helpers::tabled::timestamp", self))]
     pub stream_time: i64,
 }
 
@@ -104,6 +104,10 @@ enum ReqPostRestricted {
         etags: Vec<String>,
         upload_id: String,
     },
+}
+
+pub(crate) fn get(uuid: &str) -> Result<Video> {
+    request::get(format!("video/{uuid}")).send()?.api_result()
 }
 
 pub(crate) fn create(

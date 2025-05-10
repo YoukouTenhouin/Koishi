@@ -29,8 +29,8 @@ pub(crate) struct RoomListVideoEntry {
     title: String,
     #[tabled(rename = "Cover", display("display::option", "<Not set>"))]
     cover: Option<String>,
-    #[tabled(rename = "Date", display("helpers::tabled::timestamp", self))]
-    timestamp: i64,
+    #[tabled(rename = "Stream Time", display("helpers::tabled::timestamp", self))]
+    stream_time: i64,
     #[tabled(rename = "Restricted")]
     restricted: BoolAsInt,
 }

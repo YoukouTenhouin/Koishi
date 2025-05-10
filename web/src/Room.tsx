@@ -32,15 +32,16 @@ function phImg(width: number, height: number, text: string) {
 }
 
 const VideoLoader: FC<{
+    list: VideoList
     onLoad(): void
-}> = ({ onLoad }) => {
+}> = ({ list, onLoad }) => {
     const { ref, inViewport } = useInViewport()
 
     useEffect(() => {
         if (!inViewport) return
 
         onLoad()
-    }, [inViewport])
+    }, [list, inViewport])
 
     return (
         <Group ref={ref}>
@@ -116,7 +117,7 @@ const VideoListView: FC<{ room_id: string }> = ({ room_id }) => {
             wrap="wrap"
         >
             {list.map(v => <VideoEntry key={v.uuid} video={v} />)}
-            {!exhausted && <VideoLoader onLoad={loadMore} />}
+            {!exhausted && <VideoLoader list={list} onLoad={loadMore} />}
         </Flex>
     )
 }

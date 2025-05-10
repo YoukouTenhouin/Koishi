@@ -208,9 +208,17 @@ const ChatEntry: FC<{ entry: ChatEntry }> = ({ entry }) => {
     }
 }
 
-// Binary search to find the newest entries until current playback position
+// Binary search to find the first entries after current playback position
 // `entries` must be sorted
 function binary_search_entries(entries: ChatEntry[], playback_position: number) {
+    if (!entries.length) return 0
+
+    if (entries[0].timestamp > playback_position) {
+        return 0
+    } else if (entries[entries.length - 1].timestamp <= playback_position) {
+        return entries.length
+    }
+
     let lower = 0
     let upper = entries.length
     while (true) {

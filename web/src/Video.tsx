@@ -406,7 +406,6 @@ const VideoPlayerContext = createContext({
 
 function filter_by_search(messages: ChatMessage[], query: string) {
     const queries = query.split(" ")
-    console.log(queries)
     let ret = messages
     for (let q of queries) {
         if (q.startsWith("uid:")) {
@@ -658,7 +657,6 @@ const RestrictedView: FC<{
                     <PasswordInput
                         ref={inputRef}
                         onKeyUp={e => {
-                            console.log(e.key)
                             if (e.key === "Enter") {
                                 e.preventDefault()
                                 onVerify()

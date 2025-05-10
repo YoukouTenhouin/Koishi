@@ -1,4 +1,15 @@
-import { createContext, createRef, FC, Ref, useContext, useEffect, useMemo, useRef, useState } from 'react'
+import {
+    createContext,
+    createRef,
+    FC,
+    Ref,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from 'react'
 import { useParams, Link } from 'react-router';
 import {
     Anchor,
@@ -591,30 +602,21 @@ const RestrictedView: FC<{
 }> = ({ video }) => {
     const [loading, setLoading] = useState(false)
     const [verified, setVerified] = useState<boolean | null>(null)
+    const [password, setPassword] = useState("")
     const [hash, setHash] = useState<string | null>(null)
     const [error, setError] = useState("")
     const inputRef = useRef<HTMLInputElement>(null)
 
-    if (!video) {
-        return <VideoView video={video} />
-    } else if (!video.restricted) {
-        const source = getUnrestrictedVideoURL(video)
-        return <VideoView video={video} source={source} />
-    } else if (hash !== null) {
-        const source = getRestrictedVideoURL(video, hash)
-        return <VideoView video={video} source={source} />
-    }
-
-    const onVerify = async () => {
-        const pwd = inputRef.current?.value
-        if (!pwd) return
+    const onVerify = useCallback(async () => {
+        if (!video) return
+        if (!password) return
 
         setLoading(true)
         setVerified(null)
         setHash(null)
         setError("")
         try {
-            const hash = await restricted_hash(video.uuid.toLowerCase(), pwd)
+            const hash = await restricted_hash(video.uuid.toLowerCase(), password)
             const result = await verifyHash(video.uuid, hash)
             setVerified(result)
             if (result) {
@@ -629,6 +631,20 @@ const RestrictedView: FC<{
         } finally {
             setLoading(false)
         }
+    }, [password, video?.uuid])
+
+    useEffect(() => {
+        onVerify()
+    }, [password, video?.uuid])
+
+    if (!video) {
+        return <VideoView video={video} />
+    } else if (!video.restricted) {
+        const source = getUnrestrictedVideoURL(video)
+        return <VideoView video={video} source={source} />
+    } else if (hash !== null) {
+        const source = getRestrictedVideoURL(video, hash)
+        return <VideoView video={video} source={source} />
     }
 
     return (
@@ -651,7 +667,10 @@ const RestrictedView: FC<{
                         disabled={loading}
                         error={error || (verified === false && "密码错误")}
                     />
-                    <Button onClick={onVerify}>确认</Button>
+                    <Button
+                        onClick={() => inputRef.current && setPassword(inputRef.current.value)}>
+                        确认
+                    </Button>
                 </Stack>
             </Stack>
         </Container>

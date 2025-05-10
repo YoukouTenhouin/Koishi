@@ -13,7 +13,7 @@ export namespace schemas {
         title: v.string(),
         cover: v.nullable(v.string()),
         room: v.number(),
-        timestamp: v.number(),
+        stream_time: v.number(),
         restricted: v.number(),
     })
 }

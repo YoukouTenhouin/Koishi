@@ -1,6 +1,6 @@
 import * as v from 'valibot'
 
-import { Env, Video } from '@flib/types'
+import { Env } from '@flib/types'
 import { run_query, video_by_uuid } from '@flib/queries'
 import { get_req_body } from '@flib/requests'
 import { res } from '@flib/responses'
@@ -9,7 +9,7 @@ const ReqInsertCommon = v.object({
     title: v.pipe(v.string(), v.nonEmpty()),
     cover: v.nullable(v.string()),
     room: v.number(),
-    timestamp: v.number(),
+    stream_time: v.number(),
 })
 
 const ReqInsertUnrestricted = v.object({
@@ -30,15 +30,15 @@ const ReqInsert = v.variant('restricted', [
 const ReqUpdate = v.partial(v.object({
     title: v.string(),
     cover: v.string(),
-    timestamp: v.number(),
+    stream_time: v.number(),
 }))
 
 async function insert(uuid: string, v: v.InferOutput<typeof ReqInsert>, db: D1Database) {
     const ps = db.prepare(
         "INSERT OR IGNORE INTO video "
-        + "(uuid, title, cover, room, timestamp, restricted, restricted_hash) "
+        + "(uuid, title, cover, room, stream_time, restricted, restricted_hash) "
         + "VALUES (UNHEX(?), ?, ?, ?, ?, ?, ?)"
-    ).bind(uuid, v.title, v.cover, v.room, v.timestamp,
+    ).bind(uuid, v.title, v.cover, v.room, v.stream_time,
         v.restricted ?? 0, v.restricted_hash ?? null)
     const ret = await run_query(ps)
     if (!ret.success) {
@@ -71,14 +71,14 @@ async function update(id: string, d: v.InferOutput<typeof ReqUpdate>, db: D1Data
         return res.db_transaction_error(fetch_error)
     }
 
-    const { title, cover, timestamp } = d
+    const { title, cover, stream_time } = d
 
     const ps = db.prepare(
-        "UPDATE video SET title=?, cover=?, timestamp=? WHERE uuid=UNHEX(?)"
+        "UPDATE video SET title=?, cover=?, stream_time=? WHERE uuid=UNHEX(?)"
     ).bind(
         title ?? video.title,
         cover ?? video.cover,
-        timestamp ?? video.timestamp,
+        stream_time ?? video.stream_time,
         id
     )
     const ret = await run_query(ps)

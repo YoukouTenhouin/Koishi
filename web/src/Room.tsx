@@ -54,9 +54,9 @@ const VideoLoader: FC<{
 const VideoEntry: FC<{
     video: VideoListEntry
 }> = ({ video }) => {
-    const { uuid, title, timestamp } = video
+    const { uuid, title, stream_time } = video
 
-    const date = new Date(timestamp)
+    const stream_date = new Date(stream_time)
     const navigate = useNavigate()
 
     return (
@@ -70,7 +70,7 @@ const VideoEntry: FC<{
             </Card.Section>
 
             <Text fw={700}>{title}</Text>
-            <Text>直播时间: {date_stamp(date)}</Text>
+            <Text>直播时间: {date_stamp(stream_date)}</Text>
         </Card >
     )
 }

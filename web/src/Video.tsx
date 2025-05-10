@@ -37,7 +37,7 @@ import Cover from '@components/Cover';
 
 const VODInfo: FC<{ info: SchemaTypes.Video | null }> = ({ info }) => {
     const title = info?.title ?? "PLACEHOLDER"
-    const datetime = new Date(info?.timestamp ?? 0)
+    const datetime = new Date(info?.stream_time ?? 0)
 
     const [opened, { toggle }] = useDisclosure(true)
 

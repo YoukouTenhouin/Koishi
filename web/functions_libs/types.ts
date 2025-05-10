@@ -19,7 +19,7 @@ interface VideoCommon {
     title: string,
     cover: string | null
     room: number
-    timestamp: number
+    stream_time: number
 }
 
 interface UnrestrictedVideo extends VideoCommon {
